@@ -1,0 +1,120 @@
+---
+title: "Qualitative Network Modeling in QPress"
+author: "JMC"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+########################################################################
+# All code was originally obtained from  Melbourne-Thomas et al. 2012. #
+########################################################################
+
+require(QPress)
+require(formattable)
+require(dplyr)
+
+```
+
+```{r}
+# Fix order of labels on adjacency plot
+# Run once
+
+adjacency.image <-
+function (edges, required.groups = c(0), cex.axis = 1) 
+{
+    pal <- c("#92C5DE", "#FFFFFF", "#F4A582")
+    A <- adjacency.matrix(edges, required.groups = required.groups)
+    nodes <- node.labels(edges)
+    n <- length(nodes)
+    lwidth <- max(strwidth(nodes, units = "inches", cex = cex.axis))
+    opar <- par(mai = c(0, lwidth + 0.2, lwidth + 0.2, 0) + 0.1)
+    image(seq_len(n), seq_len(n), t(A)[, rev(seq_len(n))], axes = F, 
+        xlab = "", ylab = "", col = pal)
+    axis(2, seq_len(n), rev(nodes), las = 2, cex.axis = cex.axis)
+    axis(3, seq_len(n), nodes, las = 2, cex.axis = cex.axis)
+    box()
+    par(opar)
+}
+
+environment(adjacency.image) <- as.environment("package:QPress")
+```
+
+```{r Run QPress}
+# Load in the community model
+
+digraph.stpaul = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Dia Files/", expression(stpaul), ".dia", sep = "")
+
+edges.stpaul <- model.dia(digraph.stpaul)
+
+## Examine unweighted adjacency matrix
+
+A.stpaul <- adjacency.matrix(edges.stpaul, labels = TRUE)
+
+write.csv(file = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Community Matrices/comm_matrix_", expression(stpaul), ".csv", sep = ""), x = A.stpaul)
+
+# Take a peek at the adjacency matrix
+
+## Function to add in -1 on the diagonal generate the community matrix
+
+edgesNeg.stpaul <- enforce.limitation(edges.stpaul)
+adj_mat.stpaul <- adjacency.matrix(edgesNeg.stpaul,labels=TRUE)
+
+adjacency.image(edgesNeg.stpaul)
+
+png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/adj_image_", expression(stpaul),".png", sep = ""), units = "px", height = 700, width = 1000)
+
+adjacency.image(edgesNeg.stpaul)
+
+dev.off()
+
+# 1. Build a set of stable matrices, 
+
+sim.stpaul <<- system.simulate(n.sims = 1000, edges = edgesNeg.stpaul, 
+  sampler = community.sampler(edgesNeg.stpaul), validators = NULL) 
+
+```
+
+
+```{r Simulation output}
+# We could add additional validation criteria to filter out matricies that don't reproduce a known system behavior 
+
+# The sim object contains the inverse community matrcies, their corresponding edge weights, and a few other things.... 
+
+# Look at the proportion of stable matrices when drawing edge weights from uniform distributions
+
+sim.stpaul$stable / sim.stpaul$total
+
+# 2. Interactively expore how the nodes respond to different press scenarios
+
+impact.barplot(sim.stpaul)
+
+# Look at how the community responds when nodes are pressed one at a time.
+imptable.stpaul <- impact.table(sim.stpaul)
+
+write.csv(file = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Output/imp_table_", expression(stpaul), ".csv", sep = ""), x = imptable.stpaul)
+
+formattable(imptable.stpaul, color_tile("#92C5DE", "#F4A582"))
+formattable(round(imptable.stpaul, 2), list(~ color_tile("#92C5DE", "#F4A582")))
+# Which node perturbations have similar community outcomes?
+
+imp_dist_pert.stpaul <- dist(t(imptable.stpaul))
+
+png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/pert_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
+
+plot(hclust(imp_dist_pert.stpaul), main = "Perturbation similarity (Euclidean distance)", hang = -1)
+
+dev.off()
+
+imp_dist_node.stpaul <- dist(imptable.stpaul)
+
+png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/node_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
+
+plot(hclust(imp_dist_node.stpaul), main = "Node similarity across perturbations (Euclidean distance)", hang = -1)
+
+dev.off()
+```
+
