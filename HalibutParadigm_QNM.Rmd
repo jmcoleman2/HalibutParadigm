@@ -87,7 +87,7 @@ Figure x.  Representation of the Saint Paul community matrix in which blue cells
 ***
 
 # Saint Paul
-## Press perturbation
+## Press perturbation: increase halibut abundance
 
 ```{r Simulation output}
 # We could add additional validation criteria to filter out matricies that don't reproduce a known system behavior 
@@ -102,7 +102,14 @@ Figure x.  Representation of the Saint Paul community matrix in which blue cells
 
 impact.barplot(sim.stpaul)
 ```
+![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/imp_plot_stpaul_1.png)
 Figure x. Impact barpot of simulated responses to an increase in halibut abundance for St. Paul community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
+
+
+## Press perturbation: decrease halibut bycatch limits
+
+![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/imp_plot_stpaul_2.png)
+Figure x. Impact barpot of simulated responses to a decrease in halibut bycatch limits for St. Paul community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
 
 ```{r}
 # Look at how the community responds when nodes are pressed one at a time.
