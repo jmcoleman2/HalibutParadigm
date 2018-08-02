@@ -1,0 +1,138 @@
+---
+title: "QPress analysis of Savoonga model"
+author: "JMC"
+date: "March 22, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+require(LoopAnalyst)
+require(data.table)
+require(QPress)
+require(dplyr)
+require(stringr)
+```
+
+
+```{r}
+# Function for converting Mental modeller spreadsheets into Qpress links
+# by Sean Lucey
+
+MM2Qpress <- function(data){
+  library(data.table)
+  mental.sheet <- as.data.table(data)
+  names(mental.sheet)[1] <- 'Box'
+  n <- nrow(mental.sheet)
+  box.names <- names(mental.sheet)[which(names(mental.sheet) != 'Box')]
+  model <- c()
+  for(i in 1:n){
+    pos <- which(mental.sheet[i, .SD, .SDcol = box.names] > 0)
+    if(length(pos) > 0){
+      pos.interaction <- paste(mental.sheet[i, Box], '->', 
+                               names(mental.sheet[i, pos + 1, with = F]), 
+                               sep = '')
+      model <- append(model, pos.interaction)
+    }
+    
+    neg <- which(mental.sheet[i, .SD, .SDcol = box.names] < 0)
+    if(length(neg) > 0){
+      neg.interaction <- paste(mental.sheet[i, Box], '-*', 
+                               names(mental.sheet[i, neg + 1, with = F]), 
+                               sep = '')
+      model <- append(model, neg.interaction)
+    }
+  }
+  return(model)
+}
+```
+
+```{r Savoonga}
+# Load community matrix from Dia
+
+sav1.matrix <- read.csv("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Community Matrices/Savoonga.csv")
+
+sav1.digraph <- MM2Qpress(sav1.matrix)
+sav1.digraph <- dput(sav1.digraph)
+sav1.mod <- parse.digraph(sav1.digraph) 
+
+# Make each variable self-limiting
+
+sav1.el <- enforce.limitation(sav1.mod)
+
+# Run simulations
+
+sav1.sim <- system.simulate(1000, sav1.el)
+
+# Make interactive plot
+impact.barplot(sav1.sim)
+
+# Make table of the mean impact (positive or negative) at each node for a positive perturbation of each node. The k-th column corresponds to a perturbation of the k-th node, and shows the mean impact on each node.
+
+write.csv(x = impact.table(sav1.sim), file = "/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Output/sav_sim_table.csv")
+
+# Perturb node X, monitor node Y
+s <- community.sampler(sav1.el)
+
+# Don't know what this does
+s$select(0.5)
+
+# Perturb HalibutAbundance (+1) and monitor FishingLivelihood
+f <- press.impact(sav1.el, perturb = c(HalibutAbundance = 1),monitor = c(FishingLivelihood = 0))
+
+W <- s$community()
+f(W)
+W <- s$community()
+```
+
+```{r StPaul}
+# Load community matrix from Mental Modeler
+
+stp1.matrix <- read.csv("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Community Matrices/SaintPaul.csv")
+
+stp1.matrix$X <- str_to_upper(stp1.matrix$X)
+
+stp1.matrix$X <- gsub(pattern = "[[:space:]]", x = stp1.matrix$X, replacement = ".") 
+stp1.matrix$X <- gsub(pattern = "[[:punct:]]", x = stp1.matrix$X, replacement = ".") 
+
+colnames(stp1.matrix) <- str_to_upper(colnames(stp1.matrix))
+
+stp1.matrix <- stp1.matrix %>% select(-X.1, -GOVERNMENT.ASSISTANCE) %>% filter(X != "GOVERNMENT.ASSISTANCE")
+
+stp1.digraph <- MM2Qpress(stp1.matrix)
+stp1.digraph <- dput(stp1.digraph)
+stp1.mod <- parse.digraph(stp1.digraph) 
+
+# Make each variable self-limiting
+
+stp1.el <- enforce.limitation(stp1.mod)
+
+# Run simulations
+
+stp1.sim <- system.simulate(1000, stp1.el)
+
+# Make interactive plot
+impact.barplot(stp1.sim)
+
+# Make table of the mean impact (positive or negative) at each node for a positive perturbation of each node. The k-th column corresponds to a perturbation of the k-th node, and shows the mean impact on each node.
+
+write.csv(x = impact.table(stp1.sim), file = "/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Output/stp_sim_table.csv")
+
+# Perturb node X, monitor node Y
+s <- community.sampler(stp1.el)
+
+# Don't know what this does
+s$select(0.5)
+
+# Perturb Halibut Abundance (+1) and monitor Fishing Livelihood
+f <- press.impact(stp1.el, perturb = c(HALIBUT.ABUNDANCE = 1),monitor = c(FISHING.LIVELIHOOD = 0))
+
+W <- s$community()
+f(W)
+W <- s$community()
+```
+
+
