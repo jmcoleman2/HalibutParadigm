@@ -11,14 +11,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 ########################################################################
 # All code was originally obtained from  Melbourne-Thomas et al. 2012. #
+# Modified by Jon Reum and Jesse Coleman                               #
 ########################################################################
 
 require(QPress)
 require(formattable)
 require(dplyr)
 
-
-# Test edit to make sure things are pushing to GitHub repo
 ```
 
 ```{r}
@@ -44,6 +43,11 @@ function (edges, required.groups = c(0), cex.axis = 1)
 
 environment(adjacency.image) <- as.environment("package:QPress")
 ```
+# Saint Paul
+## Digraph
+
+![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Digraphs/SaintPaul.png)
+Figure x. Digraph showing relationships (edges) between variables (nodes) for the St. Paul community model.
 
 ```{r Run QPress}
 # Load in the community model
@@ -56,22 +60,20 @@ edges.stpaul <- model.dia(digraph.stpaul)
 
 A.stpaul <- adjacency.matrix(edges.stpaul, labels = TRUE)
 
-write.csv(file = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Community Matrices/comm_matrix_", expression(stpaul), ".csv", sep = ""), x = A.stpaul)
+# write.csv(file = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Community Matrices/comm_matrix_", expression(stpaul), ".csv", sep = ""), x = A.stpaul)
 
 # Take a peek at the adjacency matrix
 
 ## Function to add in -1 on the diagonal generate the community matrix
 
 edgesNeg.stpaul <- enforce.limitation(edges.stpaul)
-adj_mat.stpaul <- adjacency.matrix(edgesNeg.stpaul,labels=TRUE)
+adj_mat.stpaul <- adjacency.matrix(edgesNeg.stpaul,labels = TRUE)
+
+# png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/adj_image_", expression(stpaul),".png", sep = ""), units = "px", height = 700, width = 1000)
 
 adjacency.image(edgesNeg.stpaul)
 
-png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/adj_image_", expression(stpaul),".png", sep = ""), units = "px", height = 700, width = 1000)
-
-adjacency.image(edgesNeg.stpaul)
-
-dev.off()
+# dev.off()
 
 # 1. Build a set of stable matrices, 
 
@@ -79,7 +81,13 @@ sim.stpaul <<- system.simulate(n.sims = 1000, edges = edgesNeg.stpaul,
   sampler = community.sampler(edgesNeg.stpaul), validators = NULL) 
 
 ```
+Figure x.  Representation of the Saint Paul community matrix in which blue cells indicate a negative effect of column node on row node, and orange indicate a positive effect. Diagonals in blue indicate that each node in the system is assumed to be self-limiting.
 
+
+***
+
+# Saint Paul
+## Press perturbation
 
 ```{r Simulation output}
 # We could add additional validation criteria to filter out matricies that don't reproduce a known system behavior 
@@ -88,16 +96,19 @@ sim.stpaul <<- system.simulate(n.sims = 1000, edges = edgesNeg.stpaul,
 
 # Look at the proportion of stable matrices when drawing edge weights from uniform distributions
 
-sim.stpaul$stable / sim.stpaul$total
+# sim.stpaul$stable / sim.stpaul$total
 
 # 2. Interactively expore how the nodes respond to different press scenarios
 
 impact.barplot(sim.stpaul)
+```
+Figure x. Impact barpot of simulated responses to an increase in halibut abundance for St. Paul community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
 
+```{r}
 # Look at how the community responds when nodes are pressed one at a time.
 imptable.stpaul <- impact.table(sim.stpaul)
 
-write.csv(file = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Output/imp_table_", expression(stpaul), ".csv", sep = ""), x = imptable.stpaul)
+# write.csv(file = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Output/imp_table_", expression(stpaul), ".csv", sep = ""), x = imptable.stpaul)
 
 formattable(imptable.stpaul, color_tile("#92C5DE", "#F4A582"))
 formattable(round(imptable.stpaul, 2), list(~ color_tile("#92C5DE", "#F4A582")))
@@ -105,18 +116,18 @@ formattable(round(imptable.stpaul, 2), list(~ color_tile("#92C5DE", "#F4A582")))
 
 imp_dist_pert.stpaul <- dist(t(imptable.stpaul))
 
-png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/pert_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
+# png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/pert_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
 
 plot(hclust(imp_dist_pert.stpaul), main = "Perturbation similarity (Euclidean distance)", hang = -1)
 
-dev.off()
+# dev.off()
 
 imp_dist_node.stpaul <- dist(imptable.stpaul)
 
-png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/node_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
+# png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/node_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
 
 plot(hclust(imp_dist_node.stpaul), main = "Node similarity across perturbations (Euclidean distance)", hang = -1)
 
-dev.off()
+# dev.off()
 ```
 
