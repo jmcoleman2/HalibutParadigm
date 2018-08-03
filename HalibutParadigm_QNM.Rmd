@@ -138,3 +138,36 @@ plot(hclust(imp_dist_node.stpaul), main = "Node similarity across perturbations 
 # dev.off()
 ```
 
+```{r Map QPress over all models}
+
+# Create list of path names to Dia models
+
+dia_paths <- list(stpaul = "/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Dia Files/stpaul.dia", 
+                  savoonga = "/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Dia Files/savoonga.dia",
+                  unalaska = "/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Dia Files/unalaskadutch.dia",
+                  am80 = "/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Dia Files/am80.dia")
+
+
+# Convert Dia digraphs to table for use in QPress simulations
+
+edges <- map(dia_paths, model.dia)
+
+
+# Add self-limitation of each node (i.e., -1 on the diagonal of the community matrix)
+
+edges_lim <- edges %>% map(~ enforce.limitation(.))
+
+
+# Build adjacency (community) matrices for all models
+
+adj_mats <- edges_lim %>% map(~ adjacency.matrix(labels = TRUE, edges = .))
+
+
+# Produce plot of adjacency matrices (effect of column node on row node) with light blue for negative and orange for positive interactions
+
+adj_images <- edges_lim %>% map(~ adjacency.image(.))
+
+
+
+```
+
