@@ -17,6 +17,8 @@ knitr::opts_chunk$set(echo = TRUE)
 require(QPress)
 require(formattable)
 require(dplyr)
+require(purrr)
+require(tidyr)
 
 ```
 
@@ -34,11 +36,12 @@ function (edges, required.groups = c(0), cex.axis = 1)
     lwidth <- max(strwidth(nodes, units = "inches", cex = cex.axis))
     opar <- par(mai = c(0, lwidth + 0.2, lwidth + 0.2, 0) + 0.1)
     image(seq_len(n), seq_len(n), t(A)[, rev(seq_len(n))], axes = F, 
-        xlab = "", ylab = "", col = pal)
+      xlab = "", ylab = "", col = pal)
     axis(2, seq_len(n), rev(nodes), las = 2, cex.axis = cex.axis)
     axis(3, seq_len(n), nodes, las = 2, cex.axis = cex.axis)
     box()
     par(opar)
+
 }
 
 environment(adjacency.image) <- as.environment("package:QPress")
@@ -163,11 +166,26 @@ edges_lim <- edges %>% map(~ enforce.limitation(.))
 adj_mats <- edges_lim %>% map(~ adjacency.matrix(labels = TRUE, edges = .))
 
 
-# Produce plot of adjacency matrices (effect of column node on row node) with light blue for negative and orange for positive interactions
-
-adj_images <- edges_lim %>% map(~ adjacency.image(.))
+# Produce plot of adjacency matrices (effect of column node on row node) with light blue for negative and orange for positive interactions. Still not totally sure how to get this to work with the list of edge dataframes
 
 
+adjacency.image2 = function(edges) {
+  ggplot(edges %>% complete(From, nesting(To), fill = list(Type = "Z")), 
+            aes(y = rev(To), x = From, fill = Type)) +
+  geom_tile(color = "white") +
+  scale_fill_manual(values = c("#81B8D6", "#EF936F", "808080"), 
+                    name = "Interaction", 
+                    labels = c("Neg", "Pos", "Zero")) +
+  theme_minimal() + 
+  labs(x = "", y = "") +
+  scale_y_discrete(expand = c(0, 0), labels = rev(levels(edges$From))) +
+  scale_x_discrete(position = "top", expand = c(0, 0)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0), 
+        axis.ticks = element_blank())
+  
+}
+
+adj_images <- edges_lim %>% map(~ adjacency.image2(.))
 
 ```
 
