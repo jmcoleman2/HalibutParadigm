@@ -15,10 +15,11 @@ knitr::opts_chunk$set(echo = TRUE)
 ########################################################################
 
 require(QPress)
-require(formattable)
 require(dplyr)
 require(purrr)
 require(tidyr)
+require(ggplot2)
+require(reshape2)
 
 ```
 
@@ -122,6 +123,7 @@ imptable.stpaul <- impact.table(sim.stpaul)
 
 formattable(imptable.stpaul, color_tile("#92C5DE", "#F4A582"))
 formattable(round(imptable.stpaul, 2), list(~ color_tile("#92C5DE", "#F4A582")))
+
 # Which node perturbations have similar community outcomes?
 
 imp_dist_pert.stpaul <- dist(t(imptable.stpaul))
@@ -166,10 +168,10 @@ edges_lim <- edges %>% map(~ enforce.limitation(.))
 adj_mats <- edges_lim %>% map(~ adjacency.matrix(labels = TRUE, edges = .))
 
 
-# Produce plot of adjacency matrices (effect of column node on row node) with light blue for negative and orange for positive interactions. Still not totally sure how to get this to work with the list of edge dataframes
+# Produce plot of adjacency matrices (effect of column node on row node) with light blue for negative and orange for positive interactions.
 
 
-adjacency.image2 = function(edges) {
+adjacency.image2 = function(edges, modelname) {
   ggplot(edges %>% complete(From, nesting(To), fill = list(Type = "Z")), 
             aes(y = rev(To), x = From, fill = Type)) +
   geom_tile(color = "white") +
@@ -177,7 +179,7 @@ adjacency.image2 = function(edges) {
                     name = "Interaction", 
                     labels = c("Neg", "Pos", "Zero")) +
   theme_minimal() + 
-  labs(x = "", y = "") +
+  labs(y = "", x = paste(modelname)) +
   scale_y_discrete(expand = c(0, 0), labels = rev(levels(edges$From))) +
   scale_x_discrete(position = "top", expand = c(0, 0)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 0), 
@@ -185,7 +187,78 @@ adjacency.image2 = function(edges) {
   
 }
 
-adj_images <- edges_lim %>% map(~ adjacency.image2(.))
+adj_images <- map2(.x = edges_lim, .y = names(edges_lim), .f = adjacency.image2)
+
+# Run simulations
+# Not working...in progress
+
+argslist <-list(
+  n.sims <- c(rep(1000, 4)),
+  edges <- edges_lim,
+  required.groups <- c(rep(c(0))),
+  sampler <- community.sampler(edges_lim),
+  validators <- c(rep(NULL, 4))
+)
+
+
+sims <<- pmap(.l = argslist, .f = system.simulate)
+             
+# Arguments called in original code 
+# (n.sims = 1000, edges = edges_lim, 
+# sampler = community.sampler(edgesNeg.stpaul), validators = NULL)
+
+sims <- list(
+  stpaul = system.simulate(n.sims = 1000, edges = edges_lim$stpaul, sampler = community.sampler(edges_lim$stpaul), validators = NULL),
+  savoonga = system.simulate(n.sims = 1000, edges = edges_lim$savoonga, sampler = community.sampler(edges_lim$savoonga), validators = NULL),
+  unalaska = system.simulate(n.sims = 1000, edges = edges_lim$unalaska, sampler = community.sampler(edges_lim$unalaska), validators = NULL),
+  am80 = system.simulate(n.sims = 1000, edges = edges_lim$am80, sampler = community.sampler(edges_lim$am80), validators = NULL)
+)
+# Create impact tables for each model; values are positive press perturbation of column node impacts (-1 to 1) on row nodes
+
+imptables <- map(.x = sims, .f = impact.table)
+
+# Create heat maps of impact tables
+heatimptable <- function(imptable) {
+  ggplot(melt(imptable), aes(Var2, Var1, fill = value)) +
+    geom_tile(color = "white") +
+    scale_fill_gradient2(low = "#81B8D6", high = "#EF936F", mid = "808080", 
+                         midpoint = 0, limit = c(-1,1), space = "Lab", guide = FALSE) +
+    geom_text(aes(Var2, Var1, label = round(value, 2)), color = "black", size = 4) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, vjust = 1, size = 10, hjust = 1),
+      axis.text.y = element_text(size = 10),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.border = element_blank(),
+      panel.background = element_blank(),
+      axis.ticks = element_blank(),
+      legend.justification = c(1, 0),
+      legend.position = c(0.6, 0.7),
+      legend.direction = "horizontal")
+  
+}
+
+heatimptables <- map(.x = imptables, .f = heatimptable)
+
+
+# Which node perturbations have similar community outcomes?
+
+imp_dist_pert <- map(.x = imptables, .f = ~ dist(t(.)))
+
+# png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/pert_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
+
+imp_dist_pert_plot <- map(.x = imp_dist_pert, .f = ~ hclust(.))
+main = paste(names(.), "Perturbation similarity", sep = " "), hang = -1))
+
+# dev.off()
+
+imp_dist_node.stpaul <- dist(imptable.stpaul)
+
+# png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/node_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
+
+plot(hclust(imp_dist_node.stpaul), main = "Node similarity across perturbations (Euclidean distance)", hang = -1)
 
 ```
 
