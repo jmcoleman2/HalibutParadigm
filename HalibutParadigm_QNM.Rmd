@@ -1,14 +1,47 @@
 ---
 title: "Qualitative Network Modeling in QPress"
-author: "JMC"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+options(figure_counter = TRUE)
+
 ```
 
-```{r}
+```{r Fig counter setup}
+
+# http://rmflight.github.io/post/writing-papers-using-r-markdown/
+
+
+# Create variable that stores number, adds incremental value
+
+incCount <- function(inObj){
+    nObj <- length(inObj)
+    useNum <- max(inObj) + 1
+    inObj <- c(inObj, useNum)
+    inObj
+}
+
+figCount <- 0
+tableCount <- 0
+
+# Insert variable with named number into text
+
+pasteLabel <- function(preText, inObj, objName, insLink=TRUE){
+    objNum <- tail(inObj, n = 1)
+    
+    useText <- paste(preText, objNum, sep=" ")
+    if (insLink){
+        useText <- paste("[", useText, "](#", objName, ")", sep="")
+    }
+    useText
+}
+
+```
+
+```{r Load libraries}
 ########################################################################
 # All code was originally obtained from  Melbourne-Thomas et al. 2012. #
 # Modified by Jon Reum and Jesse Coleman                               #
@@ -20,130 +53,170 @@ require(purrr)
 require(tidyr)
 require(ggplot2)
 require(reshape2)
-
+require(ggmap)
 ```
 
-```{r}
-# Fix order of labels on adjacency plot
-# Run once
+```{r Modify QPress functions}
 
-adjacency.image <-
-function (edges, required.groups = c(0), cex.axis = 1) 
-{
-    pal <- c("#92C5DE", "#FFFFFF", "#F4A582")
-    A <- adjacency.matrix(edges, required.groups = required.groups)
-    nodes <- node.labels(edges)
-    n <- length(nodes)
-    lwidth <- max(strwidth(nodes, units = "inches", cex = cex.axis))
-    opar <- par(mai = c(0, lwidth + 0.2, lwidth + 0.2, 0) + 0.1)
-    image(seq_len(n), seq_len(n), t(A)[, rev(seq_len(n))], axes = F, 
-      xlab = "", ylab = "", col = pal)
-    axis(2, seq_len(n), rev(nodes), las = 2, cex.axis = cex.axis)
-    axis(3, seq_len(n), nodes, las = 2, cex.axis = cex.axis)
-    box()
-    par(opar)
+# Alternative adjacency image function
 
+adjacency.image2 = function(edges, modelname) {
+  ggplot(edges %>% complete(From, nesting(To), fill = list(Type = "Z")), 
+            aes(y = rev(To), x = From, fill = Type)) +
+  geom_tile(color = "white") +
+  scale_fill_manual(values = c("#81B8D6", "#EF936F", "808080"), 
+                    name = "Interaction", 
+                    labels = c("Neg", "Pos", "Zero")) +
+  theme_minimal() + 
+  labs(y = "", x = paste(modelname)) +
+  scale_y_discrete(expand = c(0, 0), labels = rev(levels(edges$From))) +
+  scale_x_discrete(position = "top", expand = c(0, 0)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0), 
+        axis.ticks = element_blank())
+  
 }
 
-environment(adjacency.image) <- as.environment("package:QPress")
-```
-# Saint Paul
-## Digraph
+environment(adjacency.image2) <- as.environment(".GlobalEnv")
 
-![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Digraphs/SaintPaul.png)
-Figure x. Digraph showing relationships (edges) between variables (nodes) for the St. Paul community model.
+# Heat table function
 
-```{r Run QPress}
-# Load in the community model
+heatimptable <- function(imptable) {
+  ggplot(melt(imptable), aes(Var2, Var1, fill = value)) +
+    geom_tile(color = "white") +
+    scale_fill_gradient2(low = "#81B8D6", high = "#EF936F", mid = "808080", 
+                         midpoint = 0, limit = c(-1,1), space = "Lab", guide = FALSE) +
+    geom_text(aes(Var2, Var1, label = round(value, 2)), color = "black", size = 2) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, vjust = 1, size = 8, hjust = 1),
+      axis.text.y = element_text(size = 8),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.border = element_blank(),
+      panel.background = element_blank(),
+      axis.ticks = element_blank(),
+      legend.justification = c(1, 0),
+      legend.position = c(0.6, 0.7),
+      legend.direction = "horizontal")
+  
+}
 
-digraph.stpaul = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Dia Files/", expression(stpaul), ".dia", sep = "")
-
-edges.stpaul <- model.dia(digraph.stpaul)
-
-## Examine unweighted adjacency matrix
-
-A.stpaul <- adjacency.matrix(edges.stpaul, labels = TRUE)
-
-# write.csv(file = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Community Matrices/comm_matrix_", expression(stpaul), ".csv", sep = ""), x = A.stpaul)
-
-# Take a peek at the adjacency matrix
-
-## Function to add in -1 on the diagonal generate the community matrix
-
-edgesNeg.stpaul <- enforce.limitation(edges.stpaul)
-adj_mat.stpaul <- adjacency.matrix(edgesNeg.stpaul,labels = TRUE)
-
-# png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/adj_image_", expression(stpaul),".png", sep = ""), units = "px", height = 700, width = 1000)
-
-adjacency.image(edgesNeg.stpaul)
-
-# dev.off()
-
-# 1. Build a set of stable matrices, 
-
-sim.stpaul <<- system.simulate(n.sims = 1000, edges = edgesNeg.stpaul, 
-  sampler = community.sampler(edgesNeg.stpaul), validators = NULL) 
-
-```
-Figure x.  Representation of the Saint Paul community matrix in which blue cells indicate a negative effect of column node on row node, and orange indicate a positive effect. Diagonals in blue indicate that each node in the system is assumed to be self-limiting.
+environment(heatimptable) <- as.environment(".GlobalEnv")
 
 
-***
+# Utility function
 
-# Saint Paul
-## Press perturbation: increase halibut abundance
+extend.vector <- function(named,nodes,default) {
+  if(is.null(names(named)))
+    v <- rep(named,length.out=length(nodes))
+  else {
+    k <- match(names(named),nodes)
+    if(any(is.na(k)))
+      warning("Unknown nodes:",paste(names(named)[is.na(k)],collapse=" "))
+    v <- rep(default,length(nodes))
+    v[k] <- named
+  }
+  v
+}
 
-```{r Simulation output}
-# We could add additional validation criteria to filter out matricies that don't reproduce a known system behavior 
+environment(extend.vector) <- as.environment(".GlobalEnv")
 
-# The sim object contains the inverse community matrcies, their corresponding edge weights, and a few other things.... 
+# Modify impact.barplot0 to include 'cex.names' argument for adjusting edge label text size.
 
-# Look at the proportion of stable matrices when drawing edge weights from uniform distributions
+impact.barplot2 <- function (sim, perturb = 0, monitor = NA, epsilon = 1e-05, main = "", 
+    cex.axis = 1, cex.names = 1) 
+{
+    As <- sim$A
+    nodes <- node.labels(sim$edges)
+    pal <- c("#92C5DE", "#808080", "#F4A582")
+    results <- matrix(0, length(nodes), 3)
+    perturb <- extend.vector(perturb, nodes, 0)
+    monitor <- extend.vector(monitor, nodes, NA)
+    for (i in seq_along(As)) {
+        impact <- signum(drop(As[[i]] %*% perturb), epsilon = epsilon)
+        if (all(monitor == impact, na.rm = T)) {
+            results <- results + outer(impact, -1:1, "==")
+        }
+    }
+    rownames(results) <- nodes
+    lwidth <- max(strwidth(nodes, units = "inches", cex = cex.axis))
+    opar <- par(mai = c(1, lwidth + 0.2, 0.4, 0.4) + 0.2)
+    barplot(t(results), horiz = T, las = 1, border = F, col = pal, 
+        xlab = "Simulations", main = main, cex.axis = cex.axis, cex.names = cex.names)
+    par(opar)
+}
 
-# sim.stpaul$stable / sim.stpaul$total
+environment(impact.barplot2) <- as.environment(".GlobalEnv")
 
-# 2. Interactively expore how the nodes respond to different press scenarios
-
-impact.barplot(sim.stpaul)
-```
-![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/imp_plot_stpaul_1.png)
-Figure x. Impact barpot of simulated responses to an increase in halibut abundance for St. Paul community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
-
-
-## Press perturbation: decrease halibut bycatch limits
-
-![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/imp_plot_stpaul_2.png)
-Figure x. Impact barpot of simulated responses to a decrease in halibut bycatch limits for St. Paul community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
-
-```{r}
-# Look at how the community responds when nodes are pressed one at a time.
-imptable.stpaul <- impact.table(sim.stpaul)
-
-# write.csv(file = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Output/imp_table_", expression(stpaul), ".csv", sep = ""), x = imptable.stpaul)
-
-formattable(imptable.stpaul, color_tile("#92C5DE", "#F4A582"))
-formattable(round(imptable.stpaul, 2), list(~ color_tile("#92C5DE", "#F4A582")))
-
-# Which node perturbations have similar community outcomes?
-
-imp_dist_pert.stpaul <- dist(t(imptable.stpaul))
-
-# png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/pert_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
-
-plot(hclust(imp_dist_pert.stpaul), main = "Perturbation similarity (Euclidean distance)", hang = -1)
-
-# dev.off()
-
-imp_dist_node.stpaul <- dist(imptable.stpaul)
-
-# png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/node_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
-
-plot(hclust(imp_dist_node.stpaul), main = "Node similarity across perturbations (Euclidean distance)", hang = -1)
-
-# dev.off()
 ```
 
-```{r Map QPress over all models}
+
+# Methods
+
+## Study Communities
+
+```{r Map, out.width = '1000px', out.height = '800px'}
+# Enter list of communities and lats/longs
+
+cdqs <- read.csv("/Volumes/GoogleDrive/My Drive/GIS/AK/AK_Places/CDQ_Communities_LatLong.csv", header = TRUE)
+
+cdqs[18,c(5,6)] <- c(-164.8435, 62.53281)
+cdqs[30,c(5,6)] <- c(-165.1047, 60.52948)
+
+cdqs <- cdqs %>% add_row(X = 999, Community = "Unalaska/Dutch Harbor", CDQ_Group = "Aleutian Pribilof Islands Community Development Association", CDQ_Acro = "APICDA", Longitude = -166.5346, Latitude = 53.87245) %>%
+  rename(lat = Latitude, lon = Longitude)
+
+study_coms <- data.frame(Community = c("Mekoryuk", "Saint Paul", "Savoonga", "Unalaska/Dutch Harbor"), lon = c(-166.1872, -170.2782, -170.4834, -166.5346), lat = c(60.38723, 57.12114, 63.68954, 53.87245))
+
+# Tell the mapping function where to center the map
+ctr <- data.frame(Longitude = -155, Latitude = 63)
+
+ctr2 <- data.frame(Longitude = mean(study_coms$lon), Latitude = mean(study_coms$lat))
+
+ctr3 <- data.frame(Longitude = mean(cdqs$lon), Latitude = mean(cdqs$lat))
+
+# Get Google Maps terrain map
+mapbase <- get_map(location = ctr, maptype = "toner-background", source = "stamen", zoom = 4)
+
+mapbase2 <- get_map(location = ctr2,  maptype = "terrain-background", source = "stamen", zoom = 5)
+
+mapbase3 <- get_map(location = ctr3, maptype = "terrain-background", source = "stamen", zoom = 5)
+# Plot the map with markers and labels
+
+cdqmap <-
+  ggmap(mapbase3) +
+    geom_point(data = cdqs, mapping = aes(x = lon, y = lat, color = CDQ_Group), size = 3) +
+    theme_nothing()
+cdqmap
+
+ggsave(file="/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Maps/cdqmap.svg", plot = cdqmap)
+
+refmap <-
+  ggmap(mapbase) +
+  theme_nothing()
+
+refmap
+
+ggsave(file = "/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Maps/refmap.png", plot = refmap)
+
+sc_map <-
+  ggmap(mapbase2) +
+    geom_point(data = study_coms, mapping = aes(x = lon, y = lat), color = "#000000", size = 2) +
+    geom_text(data = study_coms, aes(label = paste("   ", as.character(Community), sep="")), hjust = 0.05) +
+    theme_nothing()
+
+sc_map
+
+
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Map of study communities.
+
+# Results
+
+```{r Map QPress over all models, fig.show = 'hide'}
 
 # Create list of path names to Dia models
 
@@ -170,24 +243,7 @@ adj_mats <- edges_lim %>% map(~ adjacency.matrix(labels = TRUE, edges = .))
 
 # Produce plot of adjacency matrices (effect of column node on row node) with light blue for negative and orange for positive interactions.
 
-
-adjacency.image2 = function(edges, modelname) {
-  ggplot(edges %>% complete(From, nesting(To), fill = list(Type = "Z")), 
-            aes(y = rev(To), x = From, fill = Type)) +
-  geom_tile(color = "white") +
-  scale_fill_manual(values = c("#81B8D6", "#EF936F", "808080"), 
-                    name = "Interaction", 
-                    labels = c("Neg", "Pos", "Zero")) +
-  theme_minimal() + 
-  labs(y = "", x = paste(modelname)) +
-  scale_y_discrete(expand = c(0, 0), labels = rev(levels(edges$From))) +
-  scale_x_discrete(position = "top", expand = c(0, 0)) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 0), 
-        axis.ticks = element_blank())
-  
-}
-
-adj_images <- map2(.x = edges_lim, .y = names(edges_lim), .f = adjacency.image2)
+adj_images <- map2(.x = edges_lim, .y = c("St. Paul", "Savoonga", "Unalaska/Dutch Harbor", "Amendment 80"), .f = adjacency.image2)
 
 # Run simulations
 # Not working...in progress
@@ -201,11 +257,10 @@ argslist <-list(
 )
 
 
-sims <<- pmap(.l = argslist, .f = system.simulate)
+# Need pmap for multiple arg lists, and invoke_map for multiple functions taken as arguments
+# sims <<- pmap(.l = argslist, .f = system.simulate)
              
-# Arguments called in original code 
-# (n.sims = 1000, edges = edges_lim, 
-# sampler = community.sampler(edgesNeg.stpaul), validators = NULL)
+# The Old Fashioned way
 
 sims <- list(
   stpaul = system.simulate(n.sims = 1000, edges = edges_lim$stpaul, sampler = community.sampler(edges_lim$stpaul), validators = NULL),
@@ -213,52 +268,317 @@ sims <- list(
   unalaska = system.simulate(n.sims = 1000, edges = edges_lim$unalaska, sampler = community.sampler(edges_lim$unalaska), validators = NULL),
   am80 = system.simulate(n.sims = 1000, edges = edges_lim$am80, sampler = community.sampler(edges_lim$am80), validators = NULL)
 )
+```
+
+
+```{r Impact tables}
 # Create impact tables for each model; values are positive press perturbation of column node impacts (-1 to 1) on row nodes
 
 imptables <- map(.x = sims, .f = impact.table)
 
 # Create heat maps of impact tables
-heatimptable <- function(imptable) {
-  ggplot(melt(imptable), aes(Var2, Var1, fill = value)) +
-    geom_tile(color = "white") +
-    scale_fill_gradient2(low = "#81B8D6", high = "#EF936F", mid = "808080", 
-                         midpoint = 0, limit = c(-1,1), space = "Lab", guide = FALSE) +
-    geom_text(aes(Var2, Var1, label = round(value, 2)), color = "black", size = 4) +
-    theme_minimal() +
-    theme(
-      axis.text.x = element_text(angle = 45, vjust = 1, size = 10, hjust = 1),
-      axis.text.y = element_text(size = 10),
-      axis.title.x = element_blank(),
-      axis.title.y = element_blank(),
-      panel.grid.major = element_blank(),
-      panel.border = element_blank(),
-      panel.background = element_blank(),
-      axis.ticks = element_blank(),
-      legend.justification = c(1, 0),
-      legend.position = c(0.6, 0.7),
-      legend.direction = "horizontal")
-  
-}
 
 heatimptables <- map(.x = imptables, .f = heatimptable)
 
 
 # Which node perturbations have similar community outcomes?
 
-imp_dist_pert <- map(.x = imptables, .f = ~ dist(t(.)))
+imp_dist_pert <- map(.x = imptables, .f = ~ hclust(dist(t(.))))
+# plot() args
+# plot(imp_dist_pert$stpaul, main = paste(names(.), "Perturbation similarity", sep = " "), hang = -1))
 
-# png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/pert_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
 
-imp_dist_pert_plot <- map(.x = imp_dist_pert, .f = ~ hclust(.))
-main = paste(names(.), "Perturbation similarity", sep = " "), hang = -1))
+imp_dist_node <- map(.x = imptables, .f = ~ hclust(dist(.)))
+# plot() args
+# plot(imp_dist_node$stpaul, main = paste(names(.), "Node similarity across perturbations (Euclidean distance)", sep = " "), hang = -1)
 
-# dev.off()
-
-imp_dist_node.stpaul <- dist(imptable.stpaul)
-
-# png(filename = paste("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Plots/node_dist_", expression(stpaul), ".png", sep = ""), units = "px", height = 700, width = 1000)
-
-plot(hclust(imp_dist_node.stpaul), main = "Node similarity across perturbations (Euclidean distance)", hang = -1)
 
 ```
 
+# Saint Paul
+## Digraph
+
+![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Digraphs/SaintPaul.png)  
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Digraph showing relationships (edges) between variables (nodes) for the St. Paul community model.
+
+
+***
+## Community matrix
+
+``` {r out.width = '1000px'} 
+adj_images$stpaul
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Representation of the Saint Paul community matrix in which blue cells indicate a negative effect of column node on row node, and orange indicate a positive effect. Diagonals in blue indicate that each node in the system is assumed to be self-limiting.
+
+
+***
+## Press perturbations
+
+``` {r out.width = '1000px'}
+impact.barplot2(sims$stpaul, perturb = c("Halibut abundance" = 1), cex.axis = 1, cex.names = 0.75)
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an increase in halibut abundance for St. Paul community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
+
+
+``` {r out.width = '1000px'} 
+impact.barplot2(sims$stpaul, perturb = c("Halibut bycatch limits" = -1), cex.axis = 1, cex.names = 0.75)
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to a decrease in halibut bycatch limits for St. Paul community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
+
+
+***
+## Impact table
+
+``` {r out.width = '1000px'} 
+heatimptables$stpaul
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Mean simulated effect on row variable of positive perturbation of column variable.
+
+
+***
+## Node similarity across perturbations
+
+``` {r out.width = '1000px'} 
+plot(imp_dist_node$stpaul, cex = 0.75, xlab = "", main = "", sub = "")
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Dendrogram showing node similarity across perturbations (Euclidean distance). The more similarly a pair of nodes responds to a press perturbation of any kind, the closer they will be grouped in the dendrogram.
+
+
+***
+## Perturbation similarity
+
+``` {r out.width = '1000px'} 
+plot(imp_dist_pert$stpaul, cex = 0.75, xlab = "", main = "", sub = "")
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Dendrogram showing perturbation similarity (Euclidean distance). The more similarly a pair of nodes affects all other nodes when perturbed (positively?), the closer they will be grouped in the dendrogram. 
+
+***
+
+# Savoonga
+## Digraph
+
+![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Digraphs/Savoonga.png)
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Digraph showing relationships (edges) between variables (nodes) for the Savoonga community model.
+
+
+***
+## Community matrix
+
+``` {r out.width = '1000px'} 
+adj_images$savoonga
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Representation of the Savoonga community matrix in which blue cells indicate a negative effect of column node on row node, and orange indicate a positive effect. Diagonals in blue indicate that each node in the system is assumed to be self-limiting.
+
+
+***
+## Press perturbations
+
+``` {r out.width = '1000px'}
+impact.barplot2(sims$savoonga, perturb = c("Halibut abundance" = 1), cex.axis = 0.5)
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an increase in halibut abundance for Savoonga community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
+
+
+``` {r out.width = '1000px'} 
+impact.barplot2(sims$savoonga, perturb = c("Halibut bycatch limits" = -1), cex.axis = 0.75)
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to a decrease in halibut bycatch limits for Savoonga community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
+
+
+***
+## Impact table
+
+``` {r out.width = '1000px'} 
+heatimptables$savoonga
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Mean simulated effect on row variable of positive perturbation of column variable.
+
+
+***
+## Node similarity across perturbations
+
+``` {r out.width = '1000px'} 
+plot(imp_dist_node$savoonga, cex = 0.75, xlab = "", main = "", sub = "")
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Dendrogram showing node similarity across perturbations (Euclidean distance). The more similarly a pair of nodes responds to a press perturbation of any kind, the closer they will be grouped in the dendrogram.
+
+
+***
+## Perturbation similarity
+
+``` {r out.width = '1000px'} 
+plot(imp_dist_pert$savoonga, cex = 0.75, xlab = "", main = "", sub = "")
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Dendrogram showing perturbation similarity (Euclidean distance). The more similarly a pair of nodes affects all other nodes when perturbed (positively?), the closer they will be grouped in the dendrogram. 
+
+
+# Unalaska/Dutch Harbor
+## Digraph
+
+![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Digraphs/UnalaskaDutchHarbor.png)
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Digraph showing relationships (edges) between variables (nodes) for the Unalaska/Dutch Harbor community model.
+
+
+***
+## Community matrix
+
+``` {r out.width = '1000px'} 
+adj_images$unalaska
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Representation of the Unalaska/Dutch Harbor community matrix in which blue cells indicate a negative effect of column node on row node, and orange indicate a positive effect. Diagonals in blue indicate that each node in the system is assumed to be self-limiting.
+
+
+***
+## Press perturbations
+
+``` {r out.width = '1000px'}
+impact.barplot2(sims$unalaska, perturb = c("Halibut abundance" = 1), cex.axis = 0.5)
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an increase in halibut abundance for Unalaska/Dutch Harbor community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
+
+
+``` {r out.width = '1000px'} 
+impact.barplot2(sims$unalaska, perturb = c("Halibut bycatch limits" = -1), cex.axis = 0.75)
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to a decrease in halibut bycatch limits for Unalaska/Dutch Harbor community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
+
+
+***
+## Impact table
+
+``` {r out.width = '1000px'} 
+heatimptables$unalaska
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Mean simulated effect on row variable of positive perturbation of column variable.
+
+
+***
+## Node similarity across perturbations
+
+``` {r out.width = '1000px'} 
+plot(imp_dist_node$unalaska, cex = 0.75, xlab = "", main = "", sub = "")
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Dendrogram showing node similarity across perturbations (Euclidean distance). The more similarly a pair of nodes responds to a press perturbation of any kind, the closer they will be grouped in the dendrogram.
+
+
+***
+## Perturbation similarity
+
+``` {r out.width = '1000px'} 
+plot(imp_dist_pert$unalaska, cex = 0.75, xlab = "", main = "", sub = "")
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Dendrogram showing perturbation similarity (Euclidean distance). The more similarly a pair of nodes affects all other nodes when perturbed (positively?), the closer they will be grouped in the dendrogram. 
+
+
+# Amendment 80
+## Digraph
+
+![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Digraphs/Amendment80Fleet.png)
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Digraph showing relationships (edges) between variables (nodes) for the Amendment 80 community model.
+
+
+***
+## Community matrix
+
+``` {r out.width = '1000px'} 
+adj_images$am80
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Representation of the Amendment 80 community matrix in which blue cells indicate a negative effect of column node on row node, and orange indicate a positive effect. Diagonals in blue indicate that each node in the system is assumed to be self-limiting.
+
+
+***
+## Press perturbations
+
+``` {r out.width = '1000px'}
+impact.barplot2(sims$am80, perturb = c("Halibut abundance" = 1), cex.axis = 0.5)
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an increase in halibut abundance for Amendment 80 community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
+
+
+``` {r out.width = '1000px'} 
+impact.barplot2(sims$am80, perturb = c("Halibut bycatch limits" = -1), cex.axis = 0.75)
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to a decrease in halibut bycatch limits for Amendment 80 community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
+
+
+***
+## Impact table
+
+``` {r out.width = '1000px'} 
+heatimptables$am80
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Mean simulated effect on row variable of positive perturbation of column variable.
+
+
+***
+## Node similarity across perturbations
+
+``` {r out.width = '1000px'} 
+plot(imp_dist_node$am80, cex = 0.75, xlab = "", main = "", sub = "")
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Dendrogram showing node similarity across perturbations (Euclidean distance). The more similarly a pair of nodes responds to a press perturbation of any kind, the closer they will be grouped in the dendrogram.
+
+
+***
+## Perturbation similarity
+
+``` {r out.width = '1000px'} 
+plot(imp_dist_pert$am80, cex = 0.75, xlab = "", main = "", sub = "")
+```
+
+`r figCount <- incCount(figCount)`
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Dendrogram showing perturbation similarity (Euclidean distance). The more similarly a pair of nodes affects all other nodes when perturbed (positively?), the closer they will be grouped in the dendrogram. 
