@@ -282,6 +282,7 @@ sims <- list(
 # Run 10,000 sims, work on one simulation at a time (other operations have been mapped to a list of simulation objects)
 
 sim_stpaul <- system.simulate(n.sims = 10000, edges = edges_lim$stpaul, sampler = community.sampler(edges_lim$stpaul), validators = NULL)
+sim_stpaul_mod <- sim_stpaul
 
 # Extract row numbers for the edge weights that meet some criterium; for example, I want the row numbers of the weights that are less than 0.7 for the edge "Value of A80 CDQ -> CBSFA". 
 # Could wrap this in a function and map it to list of simulation objects; need to think about how to specify edge names that differ between models (e.g., "Value of A80 CDQ ... [name of CDQ organization]")
@@ -292,11 +293,26 @@ sim_stpaul <- system.simulate(n.sims = 10000, edges = edges_lim$stpaul, sampler 
 # sim$stable = number of stable matrices
 # sim$accepted = number of accepted matrices (not sure how this is different than sim$stable)
 
-keep.rows <- which(sim_stpaul$w[,'Value of A80 CDQ -> CBSFA'] < 0.70)
+keep.rows <- which(sim_stpaul_mod$w[,'Value of A80 CDQ -> CBSFA'] < 0.70)
 
-sim_stpaul$w <- sim_stpaul$w[keep.rows,]
+sim_stpaul_mod$w <- sim_stpaul_mod$w[keep.rows,]
 
-sim_stpaul$A <- sim_stpaul$A[keep.rows]
+sim_stpaul_mod$A <- sim_stpaul_mod$A[keep.rows]
+
+# Not sure if I should change the number of stable and/or accepted matrices. Maybe just accepted? I don't know whether other functions use those list elements.
+
+# How does modifying the interaction strength of one edge (Value of A80 CDQ -> CBSFA) impact the rest of the model?
+# Positive press of Value of A80 CDQ on all other nodes for original and modified simulations
+
+comp_imp <- data.frame(original = pull(as.data.frame(imptable_stpaul), `Value of A80 CDQ`),
+                       mod = pull(as.data.frame(imptable_stpaul_mod), `Value of A80 CDQ`)) %>% 
+  mutate(pct_diff = (mod-original)/original)
+
+range(comp_imp$pct_diff, na.rm = TRUE)
+mean(comp_imp$pct_diff, na.rm = TRUE)
+
+# So, ratcheting the effect of Value of A80 CDQ on CBSFA down by 25% had an essentially negligible effect on the system-wide dynamics.
+# On average, the model-wide impact of a positive press on Value of A80 CDQ increased by 1.6% when decreasing the interaction strength of the "Value of A80 CDQ -> CBSFA" edge by 30%.
 ```
 
 ```{r Impact tables}
