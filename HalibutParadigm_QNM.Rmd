@@ -55,6 +55,7 @@ require(ggplot2)
 require(reshape2)
 require(ggmap)
 require(stringr)
+require(DiagrammeR)
 ```
 
 ```{r Modify QPress functions}
@@ -311,8 +312,11 @@ comp_imp <- data.frame(original = pull(as.data.frame(imptable_stpaul), `Value of
 range(comp_imp$pct_diff, na.rm = TRUE)
 mean(comp_imp$pct_diff, na.rm = TRUE)
 
-# So, ratcheting the effect of Value of A80 CDQ on CBSFA down by 25% had an essentially negligible effect on the system-wide dynamics.
+# So, ratcheting the effect of Value of A80 CDQ on CBSFA down by 30% had an essentially negligible effect on the system-wide dynamics.
+
 # On average, the model-wide impact of a positive press on Value of A80 CDQ increased by 1.6% when decreasing the interaction strength of the "Value of A80 CDQ -> CBSFA" edge by 30%.
+
+# Next, median? Basically decrease int strength by 50%. Also didn't change the interaction strength of Value of A80 CDQ in other models or on other nodes; need to decide whether to map over all models and modify all interaction strengths WRT to Value A80 CDQ in the same way
 ```
 
 ```{r Impact tables}
