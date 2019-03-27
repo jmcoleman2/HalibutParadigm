@@ -56,6 +56,10 @@ require(reshape2)
 require(ggmap)
 require(stringr)
 require(DiagrammeR)
+require(DiagrammeRsvg)
+require(rsvg)
+require(leaflet)
+require(sp)
 ```
 
 ```{r Modify QPress functions}
@@ -127,7 +131,7 @@ environment(extend.vector) <- as.environment(".GlobalEnv")
 # Modify impact.barplot0 to include 'cex.names' argument for adjusting edge label text size.
 
 impact.barplot2 <- function (sim, perturb = 0, monitor = NA, epsilon = 1e-05, main = "", 
-    cex.axis = 1, cex.names = 1) 
+    cex.axis = 0.75, cex.names = 0.75) 
 {
     As <- sim$A
     nodes <- node.labels(sim$edges)
@@ -153,6 +157,44 @@ environment(impact.barplot2) <- as.environment(".GlobalEnv")
 
 ```
 
+```{r Digraph function}
+# Function to create simple digraph
+
+make_digraph <- function(edges.model.name) {
+
+nodes <- create_node_df(n = length(levels(edges.model.name$From)),
+                        label = levels(edges.model.name$From),
+                        shape = "rectangle",
+                        fontname = "Helvetica"
+                        )
+
+pos <- create_edge_df(
+  from = edges.model.name$From[edges.model.name$Type == "P"],
+  to = edges.model.name$To[edges.model.name$Type == "P"],
+  arrowhead = "normal",
+  color = "grey")
+
+neg <- create_edge_df(
+  from = edges.model.name$From[edges.model.name$Type == "N"],
+  to = edges.model.name$To[edges.model.name$Type == "N"],
+  arrowhead = "dot",
+  color = "grey")
+
+all_edges <- combine_edfs(pos, neg)
+
+graph <- create_graph(
+    nodes_df = nodes,
+    edges_df = all_edges,
+    attr_theme = NULL,
+    directed = TRUE
+    )
+
+return(graph)
+
+}
+
+```
+
 # Methods
 
 ## Study Communities
@@ -171,45 +213,50 @@ cdqs <- cdqs %>% add_row(X = 999, Community = "Unalaska/Dutch Harbor", CDQ_Group
 study_coms <- data.frame(Community = c("Mekoryuk", "Saint Paul", "Savoonga", "Unalaska/Dutch Harbor"), lon = c(-166.1872, -170.2782, -170.4834, -166.5346), lat = c(60.38723, 57.12114, 63.68954, 53.87245))
 
 # Tell the mapping function where to center the map
-ctr <- data.frame(Longitude = -155, Latitude = 63)
-
-ctr2 <- data.frame(Longitude = mean(study_coms$lon), Latitude = mean(study_coms$lat))
-
-ctr3 <- data.frame(Longitude = mean(cdqs$lon), Latitude = mean(cdqs$lat))
+# ctr <- data.frame(Longitude = -155, Latitude = 63)
+# 
+# ctr2 <- data.frame(Longitude = mean(study_coms$lon), Latitude = mean(study_coms$lat))
+# 
+# ctr3 <- data.frame(Longitude = mean(cdqs$lon), Latitude = mean(cdqs$lat))
 
 # Get Google Maps terrain map
-mapbase <- get_map(location = ctr, maptype = "toner-background", source = "stamen", zoom = 4)
+# mapbase <- get_map(location = ctr, maptype = "toner-background", source = "stamen", zoom = 4)
+# 
+# mapbase2 <- get_map(location = ctr2,  maptype = "terrain-background", source = "stamen", zoom = 5)
+# 
+# mapbase3 <- get_map(location = ctr3, maptype = "terrain-background", source = "stamen", zoom = 5)
+# # Plot the map with markers and labels
+# 
+# cdqmap <-
+#   ggmap(mapbase3) +
+#     geom_point(data = cdqs, mapping = aes(x = lon, y = lat, color = CDQ_Group), size = 3) +
+#     theme_nothing()
+# cdqmap
+# 
+# ggsave(file="/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Maps/cdqmap.svg", plot = cdqmap)
+# 
+# refmap <-
+#   ggmap(mapbase) +
+#   theme_nothing()
+# 
+# refmap
+# 
+# ggsave(file = "/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Maps/refmap.png", plot = refmap)
+# 
+# sc_map <-
+#   ggmap(mapbase2) +
+#     geom_point(data = study_coms, mapping = aes(x = lon, y = lat), color = "#000000", size = 2) +
+#     geom_text(data = study_coms, aes(label = paste("   ", as.character(Community), sep="")), hjust = 0.05) +
+#     theme_nothing()
+# 
+# sc_map
+# 
 
-mapbase2 <- get_map(location = ctr2,  maptype = "terrain-background", source = "stamen", zoom = 5)
-
-mapbase3 <- get_map(location = ctr3, maptype = "terrain-background", source = "stamen", zoom = 5)
-# Plot the map with markers and labels
-
-cdqmap <-
-  ggmap(mapbase3) +
-    geom_point(data = cdqs, mapping = aes(x = lon, y = lat, color = CDQ_Group), size = 3) +
-    theme_nothing()
-cdqmap
-
-ggsave(file="/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Maps/cdqmap.svg", plot = cdqmap)
-
-refmap <-
-  ggmap(mapbase) +
-  theme_nothing()
-
-refmap
-
-ggsave(file = "/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Maps/refmap.png", plot = refmap)
-
-sc_map <-
-  ggmap(mapbase2) +
-    geom_point(data = study_coms, mapping = aes(x = lon, y = lat), color = "#000000", size = 2) +
-    geom_text(data = study_coms, aes(label = paste("   ", as.character(Community), sep="")), hjust = 0.05) +
-    theme_nothing()
-
-sc_map
-
-
+leaflet(options = leafletOptions(minZoom = 0, maxZoom = 18))
+leaflet(study_coms) %>% 
+  addTiles() %>% 
+  addMarkers(label = ~Community,
+             labelOptions = labelOptions(noHide = TRUE))
 ```
 
 `r figCount <- incCount(figCount)`
@@ -229,10 +276,23 @@ edge_paths <- list(stpaul = paste(path, "stpaul.txt", sep = ""),
                   mekoryuk_b = paste(path, "mekoryuk_before.txt", sep = ""),
                   mekoryuk_a = paste(path, "mekoryuk_after.txt", sep = ""))
 
-# Convert edge lists to data frame for use in QPress simulations
-edge_lists <- map(.x = edge_paths, .f = read.csv, header = FALSE)
+model_names <- c("St. Paul", "Savoonga", "Unalaska/Dutch Harbor", "Amendment 80", "Mekoryuk Before", "Mekoryuk After")
 
-edges <- map(edge_paths, read.digraph)
+
+# Convert edge lists to data frame for use in QPress simulations
+
+edges <- edge_paths %>% map(~ read.digraph(.))
+
+
+# Make digraph objects for later rendering
+
+digraphs <- edges %>% map(~ make_digraph(.))
+
+
+# Make all subgraphs (each node and its neighbors)
+
+# subdigraphs <- edges %>% map(~ create_all_subgraphs(.))
+
 
 # Add self-limitation of each node (i.e., -1 on the diagonal of the community matrix)
 
@@ -246,7 +306,8 @@ adj_mats <- edges_lim %>% map(~ adjacency.matrix(labels = TRUE, edges = .))
 
 # Produce plot of adjacency matrices (effect of column node on row node) with light blue for negative and orange for positive interactions.
 
-adj_images <- map2(.x = edges_lim, .y = c("St. Paul", "Savoonga", "Unalaska/Dutch Harbor", "Amendment 80", "Mekoryuk Before"), .f = adjacency.image2)
+adj_images <- map2(.x = edges_lim, .y = model_names, .f = adjacency.image2)
+
 
 # Run simulations
 # Not working...in progress
@@ -275,18 +336,16 @@ sims <- list(
 
 ```
 
+```{r Modify interaction strengths, eval = FALSE}
 
-
-```{r Modify interaction strengths}
-
-# As a test, I am weakening the effect of Value of Amendment 80 CDQ on CBSFA in the St. Paul model. I ran a dummy simulation just to figure out what I'm doing.
+# As a test, I am weakening the effect of Value of groundfish CDQ on CBSFA in the St. Paul model. I ran a dummy simulation just to figure out what I'm doing.
 # Run 10,000 sims, work on one simulation at a time (other operations have been mapped to a list of simulation objects)
 
 sim_stpaul <- system.simulate(n.sims = 10000, edges = edges_lim$stpaul, sampler = community.sampler(edges_lim$stpaul), validators = NULL)
 sim_stpaul_mod <- sim_stpaul
 
-# Extract row numbers for the edge weights that meet some criterium; for example, I want the row numbers of the weights that are less than 0.7 for the edge "Value of A80 CDQ -> CBSFA". 
-# Could wrap this in a function and map it to list of simulation objects; need to think about how to specify edge names that differ between models (e.g., "Value of A80 CDQ ... [name of CDQ organization]")
+# Extract row numbers for the edge weights that meet some criterium; for example, I want the row numbers of the weights that are less than 0.7 for the edge "Value of groundfish CDQ -> CBSFA". 
+# Could wrap this in a function and map it to list of simulation objects; need to think about how to specify edge names that differ between models (e.g., "Value of groundfish ... [name of CDQ organization]")
 
 # sim$w = matrix of simulated edge weights (i.e., interaction strengths) where columns are edge names, rows are interaction strengths generated by each simulation
 # sim$A = list of inverse (i.e., stable) matrices
@@ -294,7 +353,7 @@ sim_stpaul_mod <- sim_stpaul
 # sim$stable = number of stable matrices
 # sim$accepted = number of accepted matrices (not sure how this is different than sim$stable)
 
-keep.rows <- which(sim_stpaul_mod$w[,'Value of A80 CDQ -> CBSFA'] < 0.70)
+keep.rows <- which(sim_stpaul_mod$w[,'Value of groundfish CDQ -> CBSFA'] < 0.70)
 
 sim_stpaul_mod$w <- sim_stpaul_mod$w[keep.rows,]
 
@@ -317,6 +376,7 @@ mean(comp_imp$pct_diff, na.rm = TRUE)
 # On average, the model-wide impact of a positive press on Value of A80 CDQ increased by 1.6% when decreasing the interaction strength of the "Value of A80 CDQ -> CBSFA" edge by 30%.
 
 # Next, median? Basically decrease int strength by 50%. Also didn't change the interaction strength of Value of A80 CDQ in other models or on other nodes; need to decide whether to map over all models and modify all interaction strengths WRT to Value A80 CDQ in the same way
+
 ```
 
 ```{r Impact tables}
@@ -346,7 +406,7 @@ imp_dist_node <- map(.x = imptables, .f = ~ hclust(dist(.)))
 # Saint Paul
 ## Digraph
 
-![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Digraphs/SaintPaul.png)  
+`r render_graph(digraphs$stpaul)`
 
 `r figCount <- incCount(figCount)`
 `r I(pasteLabel("Figure", figCount, "", FALSE))`. Digraph showing relationships (edges) between variables (nodes) for the St. Paul community model.
@@ -367,21 +427,12 @@ adj_images$stpaul
 ## Press perturbations
 
 ``` {r out.width = '1000px'}
-impact.barplot2(sims$stpaul, perturb = c("Halibut abundance" = 1), cex.axis = 1, cex.names = 0.75)
+impact.barplot2(sims$stpaul, perturb = c("Halibut access" = -1), main = "Decrease access to halibut")
 
 ```
 
 `r figCount <- incCount(figCount)`
 `r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an increase in halibut abundance for St. Paul community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
-
-
-``` {r out.width = '1000px'} 
-impact.barplot2(sims$stpaul, perturb = c("Halibut bycatch limits" = -1), cex.axis = 1, cex.names = 0.75)
-
-```
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to a decrease in halibut bycatch limits for St. Paul community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
 
 
 ***
@@ -421,7 +472,7 @@ plot(imp_dist_pert$stpaul, cex = 0.75, xlab = "", main = "", sub = "")
 # Savoonga
 ## Digraph
 
-![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Digraphs/Savoonga.png)
+`r render_graph(digraphs$savoonga)`
 
 `r figCount <- incCount(figCount)`
 `r I(pasteLabel("Figure", figCount, "", FALSE))`. Digraph showing relationships (edges) between variables (nodes) for the Savoonga community model.
@@ -442,19 +493,11 @@ adj_images$savoonga
 ## Press perturbations
 
 ``` {r out.width = '1000px'}
-impact.barplot2(sims$savoonga, perturb = c("Halibut abundance" = 1), cex.axis = 0.5)
+impact.barplot2(sims$savoonga, perturb = c("Access to halibut CDQ" = -1), main = "Decrease access to halibut CDQ")
 ```
 
 `r figCount <- incCount(figCount)`
 `r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an increase in halibut abundance for Savoonga community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
-
-
-``` {r out.width = '1000px'} 
-impact.barplot2(sims$savoonga, perturb = c("Halibut bycatch limits" = -1), cex.axis = 0.75)
-```
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to a decrease in halibut bycatch limits for Savoonga community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
 
 
 ***
@@ -493,7 +536,7 @@ plot(imp_dist_pert$savoonga, cex = 0.75, xlab = "", main = "", sub = "")
 # Unalaska/Dutch Harbor
 ## Digraph
 
-![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Digraphs/UnalaskaDutchHarbor.png)
+`r render_graph(digraphs$unalaska)`
 
 `r figCount <- incCount(figCount)`
 `r I(pasteLabel("Figure", figCount, "", FALSE))`. Digraph showing relationships (edges) between variables (nodes) for the Unalaska/Dutch Harbor community model.
@@ -514,19 +557,11 @@ adj_images$unalaska
 ## Press perturbations
 
 ``` {r out.width = '1000px'}
-impact.barplot2(sims$unalaska, perturb = c("Halibut abundance" = 1), cex.axis = 0.5)
+impact.barplot2(sims$unalaska, perturb = c("Access to halibut CDQ" = -1), main = "Decrease access to halibut CDQ")
 ```
 
 `r figCount <- incCount(figCount)`
 `r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an increase in halibut abundance for Unalaska/Dutch Harbor community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
-
-
-``` {r out.width = '1000px'} 
-impact.barplot2(sims$unalaska, perturb = c("Halibut bycatch limits" = -1), cex.axis = 0.75)
-```
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to a decrease in halibut bycatch limits for Unalaska/Dutch Harbor community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
 
 
 ***
@@ -565,7 +600,7 @@ plot(imp_dist_pert$unalaska, cex = 0.75, xlab = "", main = "", sub = "")
 # Amendment 80
 ## Digraph
 
-![](/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Digraphs/Amendment80Fleet.png)
+`r render_graph(digraphs$am80)`
 
 `r figCount <- incCount(figCount)`
 `r I(pasteLabel("Figure", figCount, "", FALSE))`. Digraph showing relationships (edges) between variables (nodes) for the Amendment 80 community model.
@@ -585,20 +620,13 @@ adj_images$am80
 ***
 ## Press perturbations
 
-``` {r out.width = '1000px'}
-impact.barplot2(sims$am80, perturb = c("Halibut abundance" = 1), cex.axis = 0.5)
-```
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an increase in halibut abundance for Amendment 80 community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
-
 
 ``` {r out.width = '1000px'} 
-impact.barplot2(sims$am80, perturb = c("Halibut bycatch limits" = -1), cex.axis = 0.75)
+impact.barplot2(sims$am80, perturb = c("Halibut bycatch limits" = -1), main = "Decrease halibut bycatch cap")
 ```
 
 `r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to a decrease in halibut bycatch limits for Amendment 80 community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to a decrease in halibut bycatch cap for Amendment 80 community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
 
 
 ***
@@ -638,6 +666,7 @@ plot(imp_dist_pert$am80, cex = 0.75, xlab = "", main = "", sub = "")
 # Mekoryuk (before)
 ## Digraph
 
+`r render_graph(digraphs$mekoryuk_b)`
 
 `r figCount <- incCount(figCount)`
 `r I(pasteLabel("Figure", figCount, "", FALSE))`. Digraph showing relationships (edges) between variables (nodes) for the Mekoryuk (before) community model.
@@ -658,20 +687,13 @@ adj_images$mekoryuk_b
 ## Press perturbations
 
 ``` {r out.width = '1000px'}
-impact.barplot2(sims$mekoryuk_b, perturb = c("Halibut abundance" = 1), cex.axis = 0.5)
+impact.barplot2(sims$mekoryuk_b, perturb = c("Access to halibut CDQ" = -1), main = "Decrease access to halibut CDQ")
 ```
 
 `r figCount <- incCount(figCount)`
 `r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an increase in halibut abundance for Mekoryuk (before) community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
 
 
-``` {r out.width = '1000px'} 
-impact.barplot2(sims$mekoryuk_b, perturb = c("Halibut bycatch limits" = -1), cex.axis = 0.75)
-```
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to a decrease in halibut bycatch limits for Mekoryuk (before) community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
-
 
 ***
 ## Impact table
@@ -705,72 +727,3 @@ plot(imp_dist_pert$mekoryuk_b, cex = 0.75, xlab = "", main = "", sub = "")
 `r figCount <- incCount(figCount)`
 `r I(pasteLabel("Figure", figCount, "", FALSE))`. Dendrogram showing perturbation similarity (Euclidean distance). The more similarly a pair of nodes affects all other nodes when perturbed (positively?), the closer they will be grouped in the dendrogram. 
 
-# Mekoryuk (after)
-## Digraph
-
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Digraph showing relationships (edges) between variables (nodes) for the Mekoryuk (after) community model.
-
-
-***
-## Community matrix
-
-``` {r out.width = '1000px'} 
-adj_images$mekoryuk_b
-```
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Representation of the Mekoryuk (after) community matrix in which blue cells indicate a negative effect of column node on row node, and orange indicate a positive effect. Diagonals in blue indicate that each node in the system is assumed to be self-limiting.
-
-
-***
-## Press perturbations
-
-``` {r out.width = '1000px'}
-impact.barplot2(sims$mekoryuk_b, perturb = c("Halibut abundance" = 1), cex.axis = 0.5)
-```
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an increase in halibut abundance for Mekoryuk (after) community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
-
-
-``` {r out.width = '1000px'} 
-impact.barplot2(sims$mekoryuk_b, perturb = c("Halibut bycatch limits" = -1), cex.axis = 0.75)
-```
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to a decrease in halibut bycatch limits for Mekoryuk (after) community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
-
-
-***
-## Impact table
-
-``` {r out.width = '1000px'} 
-heatimptables$mekoryuk_b
-```
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Mean simulated effect on row variable of positive perturbation of column variable.
-
-
-***
-## Node similarity across perturbations
-
-``` {r out.width = '1000px'} 
-plot(imp_dist_node$mekoryuk_b, cex = 0.75, xlab = "", main = "", sub = "")
-```
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Dendrogram showing node similarity across perturbations (Euclidean distance). The more similarly a pair of nodes responds to a press perturbation of any kind, the closer they will be grouped in the dendrogram.
-
-
-***
-## Perturbation similarity
-
-``` {r out.width = '1000px'} 
-plot(imp_dist_pert$mekoryuk_b, cex = 0.75, xlab = "", main = "", sub = "")
-```
-
-`r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Dendrogram showing perturbation similarity (Euclidean distance). The more similarly a pair of nodes affects all other nodes when perturbed (positively?), the closer they will be grouped in the dendrogram. 
