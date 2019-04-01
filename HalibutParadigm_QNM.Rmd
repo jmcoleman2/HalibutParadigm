@@ -687,7 +687,7 @@ adj_images$mekoryuk_b
 ## Press perturbations
 
 ``` {r out.width = '1000px'}
-impact.barplot2(sims$mekoryuk_b, perturb = c("Access to halibut CDQ" = -1), main = "Decrease access to halibut CDQ")
+impact.barplot2(sims$mekoryuk_b, perturb = c("Halibut access" = -1), main = "Decrease access to halibut")
 ```
 
 `r figCount <- incCount(figCount)`
