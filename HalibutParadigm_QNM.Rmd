@@ -47,6 +47,9 @@ pasteLabel <- function(preText, inObj, objName, insLink=TRUE){
 # Modified by Jon Reum and Jesse Coleman                               #
 ########################################################################
 
+# In case QPress needs to be reinstalled:
+# devtools::install_github("SWotherspoon/QPress")
+
 library("QPress", lib.loc="/Library/Frameworks/R.framework/Versions/3.5/Resources/library")
 require(dplyr)
 require(purrr)
@@ -212,46 +215,6 @@ cdqs <- cdqs %>% add_row(X = 999, Community = "Unalaska/Dutch Harbor", CDQ_Group
 
 study_coms <- data.frame(Community = c("Mekoryuk", "Saint Paul", "Savoonga", "Unalaska/Dutch Harbor"), lon = c(-166.1872, -170.2782, -170.4834, -166.5346), lat = c(60.38723, 57.12114, 63.68954, 53.87245))
 
-# Tell the mapping function where to center the map
-# ctr <- data.frame(Longitude = -155, Latitude = 63)
-# 
-# ctr2 <- data.frame(Longitude = mean(study_coms$lon), Latitude = mean(study_coms$lat))
-# 
-# ctr3 <- data.frame(Longitude = mean(cdqs$lon), Latitude = mean(cdqs$lat))
-
-# Get Google Maps terrain map
-# mapbase <- get_map(location = ctr, maptype = "toner-background", source = "stamen", zoom = 4)
-# 
-# mapbase2 <- get_map(location = ctr2,  maptype = "terrain-background", source = "stamen", zoom = 5)
-# 
-# mapbase3 <- get_map(location = ctr3, maptype = "terrain-background", source = "stamen", zoom = 5)
-# # Plot the map with markers and labels
-# 
-# cdqmap <-
-#   ggmap(mapbase3) +
-#     geom_point(data = cdqs, mapping = aes(x = lon, y = lat, color = CDQ_Group), size = 3) +
-#     theme_nothing()
-# cdqmap
-# 
-# ggsave(file="/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Maps/cdqmap.svg", plot = cdqmap)
-# 
-# refmap <-
-#   ggmap(mapbase) +
-#   theme_nothing()
-# 
-# refmap
-# 
-# ggsave(file = "/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Maps/refmap.png", plot = refmap)
-# 
-# sc_map <-
-#   ggmap(mapbase2) +
-#     geom_point(data = study_coms, mapping = aes(x = lon, y = lat), color = "#000000", size = 2) +
-#     geom_text(data = study_coms, aes(label = paste("   ", as.character(Community), sep="")), hjust = 0.05) +
-#     theme_nothing()
-# 
-# sc_map
-# 
-
 leaflet(options = leafletOptions(minZoom = 0, maxZoom = 18))
 leaflet(study_coms) %>% 
   addTiles() %>% 
@@ -274,9 +237,10 @@ edge_paths <- list(stpaul = paste(path, "stpaul.txt", sep = ""),
                   unalaska = paste(path, "unalaska.txt", sep = ""),
                   am80 = paste(path, "am80.txt", sep = ""),
                   mekoryuk_b = paste(path, "mekoryuk_before.txt", sep = ""),
+                  mekoryuk_b_linked = paste(path, "mekoryuk_before_linked.txt", sep = ""),
                   mekoryuk_a = paste(path, "mekoryuk_after.txt", sep = ""))
 
-model_names <- c("St. Paul", "Savoonga", "Unalaska/Dutch Harbor", "Amendment 80", "Mekoryuk Before", "Mekoryuk After")
+model_names <- c("St. Paul", "Savoonga", "Unalaska/Dutch Harbor", "Amendment 80", "Mekoryuk Before", "Mekoryuk Before linked","Mekoryuk After")
 
 
 # Convert edge lists to data frame for use in QPress simulations
