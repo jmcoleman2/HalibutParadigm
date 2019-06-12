@@ -27,6 +27,7 @@ incCount <- function(inObj){
 figCount <- 0
 tableCount <- 0
 
+
 # Insert variable with named number into text
 
 pasteLabel <- function(preText, inObj, objName, insLink=TRUE){
@@ -63,6 +64,8 @@ require(DiagrammeRsvg)
 require(rsvg)
 require(leaflet)
 require(sp)
+require(earth)
+require(vegan)
 ```
 
 ```{r Modify QPress functions}
@@ -130,6 +133,7 @@ extend.vector <- function(named,nodes,default) {
 }
 
 environment(extend.vector) <- as.environment(".GlobalEnv")
+
 
 # Modify impact.barplot0 to include 'cex.names' argument for adjusting edge label text size.
 
@@ -210,10 +214,16 @@ cdqs <- read.csv("/Volumes/GoogleDrive/My Drive/GIS/AK/AK_Places/CDQ_Communities
 cdqs[18,c(5,6)] <- c(-164.8435, 62.53281)
 cdqs[30,c(5,6)] <- c(-165.1047, 60.52948)
 
+
+# Add exoficio member of APICDA, Unalaska/Dutch Harbor
+
 cdqs <- cdqs %>% add_row(X = 999, Community = "Unalaska/Dutch Harbor", CDQ_Group = "Aleutian Pribilof Islands Community Development Association", CDQ_Acro = "APICDA", Longitude = -166.5346, Latitude = 53.87245) %>%
   rename(lat = Latitude, lon = Longitude)
 
 study_coms <- data.frame(Community = c("Mekoryuk", "Saint Paul", "Savoonga", "Unalaska/Dutch Harbor"), lon = c(-166.1872, -170.2782, -170.4834, -166.5346), lat = c(60.38723, 57.12114, 63.68954, 53.87245))
+
+
+# Create map with study communities highlighted
 
 leaflet(options = leafletOptions(minZoom = 0, maxZoom = 18))
 leaflet(study_coms) %>% 
@@ -229,18 +239,22 @@ leaflet(study_coms) %>%
 
 ```{r Map QPress over all models, fig.show = 'hide'}
 
-# Create list of path names to Dia models
+# Create list of path names to edge lists
+# Format for edge list is Node 1 ->/-*/<->/<-*/*-* Node 2 for 
+# one-way positive, one-way negative, two-way positive, positive and negative, 
+# and two-way negative interactions, respectively.
+
 path <- c("/Volumes/GoogleDrive/My Drive/Halibut Paradigm/Edge Lists/")
 
 edge_paths <- list(stpaul = paste(path, "stpaul.txt", sep = ""), 
                   savoonga = paste(path, "savoonga.txt", sep = ""),
                   unalaska = paste(path, "unalaska.txt", sep = ""),
                   am80 = paste(path, "am80.txt", sep = ""),
+                  am80_linked = paste(path, "am80_linked.txt", sep = ""),
                   mekoryuk_b = paste(path, "mekoryuk_before.txt", sep = ""),
-                  mekoryuk_b_linked = paste(path, "mekoryuk_before_linked.txt", sep = ""),
                   mekoryuk_a = paste(path, "mekoryuk_after.txt", sep = ""))
 
-model_names <- c("St. Paul", "Savoonga", "Unalaska/Dutch Harbor", "Amendment 80", "Mekoryuk Before", "Mekoryuk Before linked","Mekoryuk After")
+model_names <- c("St. Paul", "Savoonga", "Unalaska/Dutch Harbor", "Amendment 80", "Amendment 80 linked", "Mekoryuk Before",  "Mekoryuk After")
 
 
 # Convert edge lists to data frame for use in QPress simulations
@@ -253,7 +267,7 @@ edges <- edge_paths %>% map(~ read.digraph(.))
 digraphs <- edges %>% map(~ make_digraph(.))
 
 
-# Make all subgraphs (each node and its neighbors)
+# Make all subgraphs (each node and its neighbors)...takes a while
 
 # subdigraphs <- edges %>% map(~ create_all_subgraphs(.))
 
@@ -272,31 +286,29 @@ adj_mats <- edges_lim %>% map(~ adjacency.matrix(labels = TRUE, edges = .))
 
 adj_images <- map2(.x = edges_lim, .y = model_names, .f = adjacency.image2)
 
+```
 
+```{r Run sims}
 # Run simulations
-# Not working...in progress
 
-# argslist <-list(
-#   n.sims <- c(rep(1000, 4)),
-#   edges <- edges_lim,
-#   required.groups <- c(rep(c(0))),
-#   sampler <- community.sampler(edges_lim),
-#   validators <- c(rep(NULL, 4))
-# )
+# As per system.simulate help file, this function returns:
+# edges: the edge list
+# A: a list of inverse community matrices
+# w: a matrix of the corresponding edge weights
+# total: the total number of stable matrices generated
+# accepted: the number of matrices accepted for the sample
 
+num_sims <- 1000
 
-# Need pmap for multiple arg lists, and invoke_map for multiple functions taken as arguments
-# sims <<- pmap(.l = argslist, .f = system.simulate)
-             
-# The Old Fashioned way
-
+# Try to figure out how to use map2 or pmap to supply args in the form of lists
 sims <- list(
-  stpaul = system.simulate(n.sims = 1000, edges = edges_lim$stpaul, sampler = community.sampler(edges_lim$stpaul), validators = NULL),
-  savoonga = system.simulate(n.sims = 1000, edges = edges_lim$savoonga, sampler = community.sampler(edges_lim$savoonga), validators = NULL),
-  unalaska = system.simulate(n.sims = 1000, edges = edges_lim$unalaska, sampler = community.sampler(edges_lim$unalaska), validators = NULL),
-  am80 = system.simulate(n.sims = 1000, edges = edges_lim$am80, sampler = community.sampler(edges_lim$am80), validators = NULL),
-  mekoryuk_b = system.simulate(n.sims = 1000, edges = edges_lim$mekoryuk_b, sampler = community.sampler(edges_lim$mekoryuk_b), validators = NULL),
-  mekoryuk_a = system.simulate(n.sims = 1000, edges = edges_lim$mekoryuk_a, sampler = community.sampler(edges_lim$mekoryuk_a), validators = NULL))
+  stpaul = system.simulate(n.sims = num_sims, edges = edges_lim$stpaul, sampler = community.sampler(edges_lim$stpaul), validators = NULL),
+  savoonga = system.simulate(n.sims = num_sims, edges = edges_lim$savoonga, sampler = community.sampler(edges_lim$savoonga), validators = NULL),
+  unalaska = system.simulate(n.sims = num_sims, edges = edges_lim$unalaska, sampler = community.sampler(edges_lim$unalaska), validators = NULL),
+  am80 = system.simulate(n.sims = num_sims, edges = edges_lim$am80, sampler = community.sampler(edges_lim$am80), validators = NULL),
+  am80_linked = system.simulate(n.sims = num_sims, edges = edges_lim$am80_linked, sampler = community.sampler(edges_lim$am80_linked), validators = NULL),
+  mekoryuk_b = system.simulate(n.sims = num_sims, edges = edges_lim$mekoryuk_b, sampler = community.sampler(edges_lim$mekoryuk_b), validators = NULL),
+  mekoryuk_a = system.simulate(n.sims = num_sims, edges = edges_lim$mekoryuk_a, sampler = community.sampler(edges_lim$mekoryuk_a), validators = NULL))
 
 ```
 
@@ -367,6 +379,18 @@ imp_dist_node <- map(.x = imptables, .f = ~ hclust(dist(.)))
 
 ```
 
+``` {r Relative importance of linkages: Press perturbation scenarios}
+
+# For Saint Paul, Savoonga, and Mekoryuk, the press perturbation = decrease halibut access
+
+f <- press.impact(edges = edges_lim$stpaul, perturb = c("Halibut IFQ" = -1))
+
+sim_responses <- f(solve(sims$stpaul$A[[1]]))
+
+binary <- function(x) { if (x != 0) {x/abs(x)} else {0} }
+
+```
+
 # Saint Paul
 ## Digraph
 
@@ -391,8 +415,7 @@ adj_images$stpaul
 ## Press perturbations
 
 ``` {r out.width = '1000px'}
-impact.barplot2(sims$stpaul, perturb = c("Halibut access" = -1), main = "Decrease access to halibut")
-
+impact.barplot2(sims$stpaul, perturb = c("Halibut access" = -1), main = "St. Paul: Decrease access to halibut")
 ```
 
 `r figCount <- incCount(figCount)`
@@ -457,7 +480,7 @@ adj_images$savoonga
 ## Press perturbations
 
 ``` {r out.width = '1000px'}
-impact.barplot2(sims$savoonga, perturb = c("Access to halibut CDQ" = -1), main = "Decrease access to halibut CDQ")
+impact.barplot2(sims$savoonga, perturb = c("Halibut CDQ" = -1), main = "Savoonga: Decrease access to halibut CDQ")
 ```
 
 `r figCount <- incCount(figCount)`
@@ -521,7 +544,7 @@ adj_images$unalaska
 ## Press perturbations
 
 ``` {r out.width = '1000px'}
-impact.barplot2(sims$unalaska, perturb = c("Access to halibut CDQ" = -1), main = "Decrease access to halibut CDQ")
+impact.barplot2(sims$unalaska, perturb = c("Halibut bycatch quota" = -1), main = "Unalaska: Decrease halibut bycatch quota")
 ```
 
 `r figCount <- incCount(figCount)`
@@ -586,7 +609,7 @@ adj_images$am80
 
 
 ``` {r out.width = '1000px'} 
-impact.barplot2(sims$am80, perturb = c("Halibut bycatch limits" = -1), main = "Decrease halibut bycatch cap")
+impact.barplot2(sims$am80, perturb = c("Halibut bycatch quota" = -1), main = "Amendment 80: Decrease halibut bycatch quota")
 ```
 
 `r figCount <- incCount(figCount)`
@@ -650,12 +673,12 @@ adj_images$mekoryuk_b
 ***
 ## Press perturbations
 
-``` {r out.width = '1000px'}
-impact.barplot2(sims$mekoryuk_b, perturb = c("Halibut access" = -1), main = "Decrease access to halibut")
+``` {r}
+impact.barplot2(sims$mekoryuk_b, perturb = c("Halibut CDQ" = -1), main = "Mekoryuk: Decrease access to halibut CDQ")
 ```
 
 `r figCount <- incCount(figCount)`
-`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an increase in halibut abundance for Mekoryuk (before) community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
+`r I(pasteLabel("Figure", figCount, "", FALSE))`. Impact barpot of simulated responses to an decrease in access to halibut CDQ for Mekoryuk (before) community model. The proportion of simulated stable (retained) matrices that had a negative response at the node in question is shown in blue, and the proportion of stable matrices in which that node had a positive response is shown in orange.
 
 
 
