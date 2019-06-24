@@ -1,0 +1,23 @@
+Amendment.80.corporations -* Fisheries.governance
+Amendment.80.corporations -> Unalaska
+Difficulty.of.work -* High.degree.of.structure.allows.people.to.flourish
+Difficulty.of.work -* Sense.of.family.and.community.on.ship
+Economic.security.of.individuals.and.extended.families -> Way.of.life
+Fisheries.governance -> Halibut.bycatch.quota
+Fisheries.governance -> Halibut.avoidance.measures
+Halibut.avoidance.measures -> Difficulty.of.work
+Halibut.avoidance.measures -> Operating.expenses
+Halibut.avoidance.measures -* Safety
+Halibut.avoidance.measures -> Uncertainty
+Halibut.bycatch.quota -* Halibut.avoidance.measures
+High.degree.of.structure.allows.people.to.flourish -> Economic.security.of.individuals.and.extended.families
+High.degree.of.structure.allows.people.to.flourish -> Way.of.life
+Operating.expenses -* Amendment.80.corporations
+Operating.expenses -* Economic.security.of.individuals.and.extended.families
+Safety -> High.degree.of.structure.allows.people.to.flourish
+Sense.of.family.and.community.on.ship -> Safety
+Sense.of.family.and.community.on.ship -> Way.of.life
+Unalaska -* Fisheries.governance
+Uncertainty -* High.degree.of.structure.allows.people.to.flourish
+Uncertainty -* Sense.of.family.and.community.on.ship
+

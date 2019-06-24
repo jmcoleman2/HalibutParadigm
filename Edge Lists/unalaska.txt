@@ -1,0 +1,32 @@
+Amendment.80.corporations -* Fisheries.governance
+Amendment.80.corporations -> Infrastructure
+Amendment.80.corporations -> Job.creation
+Autonomy -> Aleut.culture.and.community.identity
+Autonomy -* Fisheries.governance
+Cash <-> Job.creation
+Cash -> Subsistence.livelihood
+Distributional.equity -> Aleut.culture.and.community.identity
+Distributional.equity -> Fishing.livelihood
+Fisheries.governance -> Halibut.bycatch.quota
+Fishing.livelihood -> Cash
+Fishing.livelihood -> Marine.harvesting.way.of.life
+Halibut.abundance -> Halibut.IFQ
+Halibut.abundance -> Hunting.and.fishing.connection.to.land
+Halibut.abundance -> Subsistence.livelihood
+Halibut.bycatch.quota -> Amendment.80.corporations
+Halibut.bycatch.quota -* Halibut.IFQ
+Halibut.IFQ -> Fishing.livelihood
+Hunting.and.fishing.connection.to.land -> Way.of.life
+Infrastructure -> Job.creation
+Infrastructure -> Job.quality
+Job.creation <-> Distributional.equity
+Job.creation -> Job.quality
+Job.quality -> Way.of.life
+Knowledge.and.ability.to.practice <-> Fishing.livelihood
+Knowledge.and.ability.to.practice -> Marine.harvesting.way.of.life
+Knowledge.and.ability.to.practice <-> Subsistence.livelihood
+Marine.harvesting.way.of.life -> Aleut.culture.and.community.identity
+Subsistence.livelihood <-> Distributional.equity
+Subsistence.livelihood -> Marine.harvesting.way.of.life
+
+

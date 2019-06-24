@@ -1,0 +1,42 @@
+Autonomy -> Cup’ig.culture.and.community.identity
+Cash <-> Job.creation.
+Cash -> Subsistence.livelihood
+CVRF -* Autonomy
+CVRF -> Fisheries.governance
+CVRF -> Fishing.livelihood
+CVRF -> Gear.loans
+CVRF -> Halibut.CDQ
+CVRF -> Job.creation
+CVRF <-> Other.commercial.fishing.investments
+CVRF -> Other.communities
+Distributional.equity -> Cup’ig.culture.and.community.identity
+Distributional.equity -> Fishing.livelihood
+Distributional.equity <-> Job.creation
+Fisheries.governance -> Halibut.bycatch.quota
+Fisheries.governance -* Halibut.CDQ
+Fishing.livelihood -> Cash
+Fishing.livelihood -> Marine.harvesting.way.of.life
+Gear.loans -* Cash
+Gear.loans -> Fishing.livelihood
+Halibut.abundance -> Halibut.CDQ
+Halibut.abundance -> Subsistence.livelihood
+Halibut.bycatch.quota -* Halibut.CDQ
+Halibut.bycatch.quota -> Value.of.groundfish.CDQ
+Halibut.CDQ -> Fishing.livelihood
+Knowledge.and.ability.to.practice <-> Fishing.livelihood
+Knowledge.and.ability.to.practice -> Marine.harvesting.way.of.life
+Marine.harvesting.way.of.life -> Cup’ig.culture.and.community.identity
+Other.communities -* Autonomy
+Other.communities -* Other.commercial.fishing.investments
+Subsistence.livelihood <-> Distributional.equity
+Subsistence.livelihood <-> Knowledge.and.ability.to.practice
+Subsistence.livelihood -> Marine.harvesting.way.of.life
+Value.of.groundfish.CDQ -> CVRF
+
+
+
+
+
+
+
+
