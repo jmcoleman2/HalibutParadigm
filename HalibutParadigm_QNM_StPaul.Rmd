@@ -1,5 +1,5 @@
 ---
-title: "Qualitative Network Modeling in QPress"
+title: "Alaska's Changing Halibut Paradigm"
 output: html_document
 ---
 
@@ -240,7 +240,7 @@ leaflet(study_coms) %>%
 
 # Results
 
-```{r Map QPress over all models, fig.show = 'hide', eval = FALSE}
+```{r Map QPress over all models, fig.show = 'hide'}
 
 # Create list of path names to edge lists
 # Format for edge list is Node 1 ->/-*/<->/<-*/*-* Node 2 for 
@@ -382,152 +382,104 @@ imp_dist_node <- map(.x = imptables, .f = ~ hclust(dist(.)))
 
 ```
 
-``` {r Simulations and Boosted Regression Trees: St. Paul}
+``` {r Simulations and Boosted Regression Trees}
 # Generalized boosted regression trees (BRT) to determine the relative importance of each linkage on the a response node, given a press perturbation.
 
-# For now, run only St. Paul
+# Selected edge lists (self-limitation enforced)
+stpaul_edges <- edges_lim$stpaul
+mekoryuk_edges <- edges_lim$mekoryuk_b
+unalaska_edges <- edges_lim$unalaska
 
-s.train <- community.sampler(edges = edges_lim$stpaul)
 
-### Build 1,000 simulation training dataset
+# Function to run simulations, press perturbations, fit boosted regression treel model, and output plots
+
+hpqnm <- function(edges,                     # data frame of edges produced with read.digraph()
+                  perturb,                   # press perturbation: e.g., c("Halibut.bycatch.quota" = -1)
+                  n.sims,                    # number of stable community matrix simulations to be run to produce training dataset
+                  response.var,              # response variable (i.e., node to be monitored) in boosted regression tree model fitting
+                  tree.complexity = 2,       # interaction depth (i.e., first-order, second-order)
+                  learning.rate = 0.001,     # shrinkage parameter
+                  bag.fraction = 0.5)        # percentage of full dataset selected
+
+{
+
+s <- community.sampler(edges = edges)
+
+
+### Build simulation dataset
 ## Function to define the perturbation scenario
 
-impact.train <- press.impact(edges = edges_lim$stpaul, perturb = c("Halibut.bycatch.quota" = -1))
+impact <- press.impact(edges = edges, perturb = perturb)
 
-A.train <- adjacency.matrix(edges = edges_lim$stpaul, labels = TRUE)
+A <- adjacency.matrix(edges = edges, labels = TRUE)
 
 
 # Build matix to keep track of edge weights in data frame
-Wlog.train <- matrix(nrow = 1, ncol = nrow(edges_lim$stpaul))
+Wlog <- matrix(nrow = 1, ncol = nrow(edges))
 
-Wlog.train <- as.data.frame(Wlog.train)
+Wlog <- as.data.frame(Wlog)
 
-whichW.train <- which(A.train != 0)
+whichW <- which(A != 0)
 
-tempedgenames.train <- matrix("", nrow = dim(A.train)[1], ncol = dim(A.train)[2])
+tempedgenames <- matrix("", nrow = dim(A)[1], ncol = dim(A)[2])
 
-  for (i in 1:dim(edges_lim$stpaul)[1]) {
-      tempedgenames.train[edges_lim$stpaul$To[i], edges_lim$stpaul$From[i]] <- paste(edges_lim$stpaul$From[i], edges_lim$stpaul$To[i], sep='_')
+  for (i in 1:dim(edges)[1]) {
+      tempedgenames[edges$To[i], edges$From[i]] <- paste(edges$From[i], edges$To[i], sep='_')
   }
 
-colnames(Wlog.train) <- tempedgenames.train[whichW.train]
+colnames(Wlog) <- tempedgenames[whichW]
 
 
-## Use 10,000 simulations (training observations)
-n.sims.train <- 10000
-n.stable.train <- 0
-allimp.train  <- matrix(0, n.sims.train, length(levels(edges_lim$stpaul$From)))
+## Simulations of random interaction strengths
 
- while(n.stable.train < n.sims.train) {
+n.stable <- 0
+allimp  <- matrix(0, n.sims, length(levels(edges$From)))
+
+ while(n.stable < n.sims) {
     ## Randomly choose edges to retain
-    z <- s.train$select(runif(1))
+    z <- s$select(runif(1))
     
     ## Sample community matrix
-    W.train <- s.train$community()
+    W <- s$community()
   
     ## Check stability
-    if(!stable.community(W.train)) next
-    n.stable.train <- n.stable.train + 1
+    if(!stable.community(W)) next
+    n.stable <- n.stable + 1
   
     ## Monitor impact post press
-    imp.train <- signum(impact.train(W.train))
+    imp <- signum(impact(W))
     
-    allimp.train[n.stable.train,] <- imp.train
-    Wlog.train[n.stable.train,] <- W.train[whichW.train]
+    allimp[n.stable,] <- imp
+    Wlog[n.stable,] <- W[whichW]
     
  }
 
-temp.train <- allimp.train 
-colnames(temp.train) <- levels(edges_lim$stpaul$From)
-temp.train <- cbind(temp.train, Wlog.train)
+temp <- allimp 
+colnames(temp) <- levels(edges$From)
+temp <- cbind(temp, Wlog)
 
 
-d.train <- cbind(temp.train["Fishing.livelihood"], temp.train[names(Wlog.train)])
+d <- cbind(temp[paste(response.var)], temp[names(Wlog)])
 
 
 # Convert signed responses to 0 or 1
 
-d.train[d.train[,1] == -1,1] <- 0
-
-
-### Search matrix for appropriate parameter values of tree complexity (tc), bag fraction, learning rate (lr), and number of trees; from http://uc-r.github.io/gbm_regression 
-
-## NOT WORKING!
-
-# hyper_grid <- expand.grid(
-#   shrinkage = c(.01, .1, .3),
-#   interaction.depth = c(1, 3, 5),
-#   n.minobsinnode = c(5, 10, 15),
-#   bag.fraction = c(.65, .8, 1), 
-#   optimal_trees = 0,               # a place to dump results
-#   min_RMSE = 0                     # a place to dump results
-# )
-# 
-# set.seed(86)
-# 
-# for(i in 1:nrow(hyper_grid)) {
-#   
-#   # train model
-# fit.tune <- gbm(
-#     formula = Fishing.livelihood ~ .,
-#     distribution = "bernoulli",
-#     data = d.train,
-#     n.trees = 5000,
-#     interaction.depth = hyper_grid$interaction.depth[i],
-#     shrinkage = hyper_grid$shrinkage[i],
-#     n.minobsinnode = hyper_grid$n.minobsinnode[i],
-#     bag.fraction = hyper_grid$bag.fraction[i],
-#     train.fraction = .75,
-#     n.cores = NULL, # will use all cores by default
-#     verbose = TRUE
-#   )
-#   
-#   # add min training error and trees to grid
-#   hyper_grid$optimal_trees[i] <- which.min(fit.tune$valid.error)
-#   hyper_grid$min_RMSE[i] <- sqrt(min(fit.tune$valid.error))
-# }
-# 
-# hyper_grid <- hyper_grid %>% 
-#   arrange(min_RMSE)
-# 
-
-### Fit trees to predictions using parameter values identified from matrix search
+d[d[,1] == -1,1] <- 0 # All rows with -1's in the first column of d (the response variable) changed to 0
 
 set.seed(86)
 
-
-# # Plug hyperparameters from grid search
-# 
-# fit1 <- gbm.step(data = d.train,
-#                  gbm.x = 2:ncol(d.train),
-#                  gbm.y = 1,
-#                  family = "bernoulli",
-#                  tree.complexity = hyper_grid[,],
-#                  learning.rate = hyper_grid[,],
-#                  bag.fraction = hyper_grid[,])
-
-fit1 <- gbm.step(data = d.train,
-                 gbm.x = 2:ncol(d.train),
+fit1 <- gbm.step(data = d,
+                 gbm.x = 2:ncol(d),
                  gbm.y = 1,
                  family = "bernoulli",
-                 tree.complexity = 5,
-                 learning.rate = 0.01,
-                 bag.fraction = 0.5)
+                 tree.complexity = tree.complexity,
+                 learning.rate = learning.rate,
+                 bag.fraction = bag.fraction)
 
 
 sum1 <- summary(fit1, las = 1, cex.names = 0.5)
 
 fit1_inf <- tibble(RelInf = sum1$rel.inf, LinkName = sum1$var)
-
-### Plot relative influence of top 6 linkages
-
-ggplot(fit1_inf %>% slice(1:6), aes(x = reorder(LinkName, RelInf), y = RelInf, fill = RelInf)) +
-  geom_bar(position = "dodge", stat = "identity") +
-  scale_fill_gradient(low = "gray80", high = "black", name = "% of total influence") +
-  scale_x_discrete(name = "Link") +
-  scale_y_continuous(name = "Relative influence") +
-  coord_flip() +
-  theme(legend.position = "bottom")
 
 
 ## Plot marginal effect (i.e., partial dependence) for 6 most important predictor linkages
@@ -535,132 +487,42 @@ ggplot(fit1_inf %>% slice(1:6), aes(x = reorder(LinkName, RelInf), y = RelInf, f
 gbm.plot(fit1, n.plots = 6, write.title = FALSE, smooth = TRUE, las = 1, plot.layout = c(3,2))
 
 
-## Plot fitted values for 6 most important predictor linkages
-# v argument is incorrect
+## Plot fitted values for predictor linkages
 
-gbm.plot.fits(fit1, v = 6)
+var.index <- data_frame(LinkName = fit1$var.names, var.number = c(1:length(fit1$var.names)))
 
-# Also doesn't work
+fit1_inf <- left_join(fit1_inf, var.index, by = "LinkName")
 
-# fit1
-#   partial(pred.var = fit1_inf$LinkName[1], 
-#           n.trees = fit1$n.trees, 
-#           grid.resolution = 100) %>%
-#   autoplot(rug = TRUE, train = d)
+gbm.plot.fits(fit1, v = fit1_inf$var.number[1:6])
 
-### Gander at interactions, if any exist
+
+### Plot most influential interaction
 
 find.int <- gbm.interactions(fit1)
 
 gbm.perspec(fit1, x = find.int$rank.list$var2.index[1], y = find.int$rank.list$var1.index[1])
 
 
-
-### Re-run simulations and press to build 500-simulation prediction dataset
-
-s.pred <- community.sampler(edges_lim$stpaul)
-
-## Function to define the perturbation scenario
-
-impact.pred <- press.impact(edges_lim$stpaul, perturb = c("Halibut.bycatch.quota" = -1))
-A.pred <- adjacency.matrix(edges_lim$stpaul, labels = TRUE)
-
-# Build matix to keep track of edge weights in data frame
-Wlog.pred <- matrix(nrow = 1,
-                    ncol = length(edges_lim$stpaul$From))
-
-Wlog.pred <- as.data.frame(Wlog.pred)
-
-whichW.pred <- which(A.pred!=0)
-
-tempedgenames.pred <- matrix("", nrow = dim(A.pred)[1], ncol = dim(A.pred)[2])
-
-for (i in 1:dim(edges_lim$stpaul)[1]) {
-tempedgenames.pred[edges_lim$stpaul$To[i],edges_lim$stpaul$From[i]] <- paste(edges_lim$stpaul$From[i],edges_lim$stpaul$To[i],sep='_')
-}
-colnames(Wlog.pred) <- tempedgenames.pred[whichW.pred]
-
-## Use 500 simulations
-n.sims.pred <- 500
-n.stable.pred <- 0
-allimp.pred <- matrix(0, n.sims.pred, length(levels(edges_lim$stpaul$From)))
-    
-  while(n.stable.pred < n.sims.pred) {
-    
-    ## Randomly choose edges_lim$stpaul to retain
-    z <- s.pred$select(runif(1))
-    
-    ## Sample community matrix
-    W.pred <- s.pred$community()
-    
-    ## Check stability
-    if(!stable.community(W.pred)) next
-    n.stable.pred <- n.stable.pred + 1
-    
-    ## Monitor impact post press
-    imp.pred <- signum(impact.pred(W.pred))
-    allimp.pred[n.stable.pred,] <- imp.pred
-    Wlog.pred[n.stable.pred,] <- W.pred[whichW.pred]
-    }
-
-temp.pred <- allimp.pred 
-colnames(temp.pred) <- levels(edges_lim$stpaul$From)
-temp.pred <- cbind(temp.pred, Wlog.pred)
-
-
-d.pred <- cbind(temp.pred["Fishing.livelihood"], temp.pred[names(Wlog.pred)])
-
-
-# Convert signed responses to 0 or 1
-
-d.pred[d.pred[,1] == -1,1] <- 0
-
-fit.fixed <- gbm.fixed(data = d.train,
-                         gbm.x = 2:ncol(d.train),
-                         gbm.y = 1,
-                         learning.rate = 0.001,
-                         tree.complexity = 5,
-                         bag.fraction = 0.5,
-                         n.trees = 10000)
-
-tree.list <- seq(100, 10000, by = 100)
-
-pred <- predict.gbm(fit.fixed, d.pred, n.trees = tree.list, type = "response")
-
-pred.deviance <- rep(0,100)
-
-for (i in 1:length(pred.deviance)) {
-
-  pred.deviance[i] <- calc.deviance(obs = d.pred$Fishing.livelihood, 
-                                    pred = pred[,i],
-                                    calc.mean = TRUE)
 }
 
-plot(tree.list,
-     pred.deviance,
-     ylim = c(0.7,1),
-     xlim = c(-100,10000),
-     type = 'l',
-     xlab = "number of trees",
-     ylab = "predictive deviance", 
-     cex.lab = 1) 
 
-### Plot specifity versus sensitivity & area under the curve
+### Run simulations and BRT on St. Paul, Mekoryuk, and Unalaska models with default learning rate, tree complexity, and bag fraction parameters
 
-require(pROC)
-roc(temp.pred$Fishing.livelihood, preds)
-pROC_obj <- roc(response = temp.pred$Fishing.livelihood,
-                predictor = preds,
-                smoothed = TRUE,
-                # arguments for ci
-                ci = TRUE, ci.alpha = 0.9, stratified = FALSE,
-                # arguments for plot
-                plot = TRUE, auc.polygon = TRUE, max.auc.polygon = TRUE, grid = TRUE,
-                print.auc = TRUE, show.thres = TRUE)
-    
-sens.ci <- ci.se(pROC_obj)
-plot(sens.ci, type="shape", col="lightblue")
-plot(sens.ci, type="bars")
+
+hpqnm(edges = edges_lim$stpaul,
+      perturb = c("Halibut.bycatch.quota" = -1),
+      response.var = "Aleut.culture.and.community.identity",
+      n.sims = 1000)
+
+hpqnm(edges = edges_lim$mekoryuk_b,
+      perturb = c("Halibut.bycatch.quota" = -1),
+      response.var = "Cup'ig.culture.and.community.identity",
+      n.sims = 1000)
+
+hpqnm(edges = edges_lim$unalaska,
+      perturb = c("Halibut.abundance" = -1),
+      response.var = "Aleut.culture.and.community.identity",
+      n.sims = 1000)
 
 ```
 
